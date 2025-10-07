@@ -56,7 +56,7 @@ const Header = () => {
                   to="/"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/')
-                      ? 'text-accent-blue'
+                      ? 'text-accent-light-blue'
                       : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
@@ -66,7 +66,7 @@ const Header = () => {
                   to="/features"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/features')
-                      ? 'text-accent-blue'
+                      ? 'text-accent-light-blue'
                       : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
@@ -76,7 +76,7 @@ const Header = () => {
                   to="/about"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/about')
-                      ? 'text-accent-blue'
+                      ? 'text-accent-light-blue'
                       : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
