@@ -39,12 +39,6 @@ src/
 └── utils/              # Utilidades y helpers
 ```
 
-## 🔐 Sistema de Autenticación
-
-El proyecto incluye un sistema de autenticación mock con las siguientes credenciales de prueba:
-
-- **Email:** usuario@test.com
-- **Contraseña:** password
 
 ### Rutas Protegidas
 
