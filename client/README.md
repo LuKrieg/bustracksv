@@ -85,27 +85,6 @@ El proyecto utiliza variables CSS personalizadas:
    npm run build
    ```
 
-## 📱 Funcionalidades Implementadas
-
-- ✅ Sistema de rutas con React Router
-- ✅ Rutas protegidas con autenticación
-- ✅ Header responsive con navegación activa
-- ✅ Páginas de autenticación (login/registro)
-- ✅ Dashboard del usuario
-- ✅ Página del mapa (placeholder)
-- ✅ Sistema de autenticación mock
-- ✅ Diseño responsive con Tailwind CSS
-- ✅ Variables CSS personalizadas
-
-## 🔄 Próximos Pasos
-
-- [ ] Integración con API real
-- [ ] Implementación del mapa interactivo
-- [ ] Sistema de notificaciones
-- [ ] Historial de viajes
-- [ ] Favoritos y rutas personalizadas
-- [ ] Integración con GPS en tiempo real
-
 ## 📄 Licencia
 
 Este proyecto está bajo la Licencia MIT.
