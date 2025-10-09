@@ -1,0 +1,22 @@
+# Ignorar archivos innecesarios en Docker
+build/
+cmake-build-*/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+logs/
+uploads/
+.git/
+.gitignore
+README.md
+INSTALL.md
+config.example.json
+scripts/
+*.bat
+*.sh
+Dockerfile
+docker-compose.yml
+.dockerignore
