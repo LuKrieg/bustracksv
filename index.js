@@ -76,4 +76,44 @@ app.post("/login", async (req, res) => {
 
 // 🔹 Iniciar servidor
 const PORT = process.env.PORT || 4000;
+// 🔹 Validar token
+app.get("/validate", async (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  // Si no viene el token en los headers
+  if (!authHeader) {
+    return res.status(401).json({ message: "Token no proporcionado" });
+  }
+
+  // El token viene así: "Bearer eyJhbGciOi..."
+  const token = authHeader.split(" ")[1];
+
+  try {
+    // Verificamos que el token sea válido
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Buscamos al usuario en la base de datos
+    const result = await pool.query("SELECT * FROM usuarios WHERE id = $1", [
+      decoded.id,
+    ]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // Si todo bien, respondemos con los datos del usuario
+    const user = result.rows[0];
+    res.json({
+      message: "Token válido",
+      usuario: user.usuario,
+      rol: user.rol,
+      id: user.id,
+    });
+  } catch (err) {
+    console.error("Error al validar token:", err.message);
+    res.status(403).json({ message: "Token inválido o expirado" });
+  }
+});
+
 app.listen(PORT, () => console.log(`✅ Servidor corriendo en http://localhost:${PORT}`));
+
