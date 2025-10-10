@@ -39,12 +39,6 @@ src/
 └── utils/              # Utilidades y helpers
 ```
 
-## 🔐 Sistema de Autenticación
-
-El proyecto incluye un sistema de autenticación mock con las siguientes credenciales de prueba:
-
-- **Email:** usuario@test.com
-- **Contraseña:** password
 
 ### Rutas Protegidas
 
@@ -90,27 +84,6 @@ El proyecto utiliza variables CSS personalizadas:
    ```bash
    npm run build
    ```
-
-## 📱 Funcionalidades Implementadas
-
-- ✅ Sistema de rutas con React Router
-- ✅ Rutas protegidas con autenticación
-- ✅ Header responsive con navegación activa
-- ✅ Páginas de autenticación (login/registro)
-- ✅ Dashboard del usuario
-- ✅ Página del mapa (placeholder)
-- ✅ Sistema de autenticación mock
-- ✅ Diseño responsive con Tailwind CSS
-- ✅ Variables CSS personalizadas
-
-## 🔄 Próximos Pasos
-
-- [ ] Integración con API real
-- [ ] Implementación del mapa interactivo
-- [ ] Sistema de notificaciones
-- [ ] Historial de viajes
-- [ ] Favoritos y rutas personalizadas
-- [ ] Integración con GPS en tiempo real
 
 ## 📄 Licencia
 
