@@ -12,7 +12,7 @@ Descárgalo desde: https://git-scm.com/downloads
 Verifica la instalación:  
 ```bash
 git --version
-
+```
 **PostgreSQL (15 o superior) + pgAdmin**  
 Descárgalo desde: https://www.postgresql.org/download/  
 - Recuerda la contraseña del usuario `postgres`.  
