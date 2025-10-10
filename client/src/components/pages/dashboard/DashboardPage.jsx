@@ -1,118 +1,101 @@
+import Header from "../../layout/Header";
 import { useMemo } from "react";
 
-export default function DashboardPage() {
-  const logo = "/logo_full.png";
-  const iconBus = "/bus.png";
-  const iconParada = "/cilindroCeleste.png"; // usa /map.png si luego lo tienen
-  const iconRuta = "/calendar.png";
+/* ---------- Tarjeta estilo mock ---------- */
+const StatCard = ({ title, iconSrc, value = 1 }) => (
+  <div className="rounded-[18px] bg-[#a9c9e8] text-[#0f2b4a] px-8 py-6 shadow-[0_8px_24px_rgba(0,0,0,0.15)]">
+    <p className="text-[28px] font-extrabold tracking-tight mb-4">{title}</p>
 
-  const stats = useMemo(
-    () => [
-      { label: "Buses",   value: 1, icon: iconBus },
-      { label: "Paradas", value: 1, icon: iconParada },
-      { label: "Rutas",   value: 1, icon: iconRuta },
-    ],
-    []
-  );
+    <div className="flex items-center">
+      {/* ícono cuadrado azul */}
+      <div className="h-[84px] w-[84px] rounded-[10px] bg-[#64a3d5] grid place-items-center">
+        <img src={iconSrc} alt={title} className="h-[54px] w-[54px] object-contain" />
+      </div>
 
-  const historial = useMemo(
-  () => [
-    { ruta: "25 av. norte",     bus: "36-C",  parada: "25 av norte",     dia: "03/10/25", hora: "12:00 PM" },
-    { ruta: "Hospital Rosales", bus: "42-A",  parada: "Parque infantil", dia: "03/10/25", hora: "12:00 PM" },
-    { ruta: "49 av. norte",     bus: "109-B", parada: "Metrocentro",     dia: "03/10/25", hora: "12:00 PM" },
-    { ruta: "Autop. Comalapa",  bus: "12-B",  parada: "Paso el Jaguar",  dia: "03/10/25", hora: "12:00 PM" },
-  ],
-  []
+      {/* número grande */}
+      <span className="ml-auto text-[56px] leading-none font-extrabold text-[#102a5a]">
+        {value}
+      </span>
+    </div>
+  </div>
 );
 
+export default function DashboardPage() {
+  // Cambia la fecha si lo querés 2022 como en el mock
+  const FECHA = "03/10/25"; // para 2022: "03/10/22"
+  const HORA  = "12:00 PM";
+
+  const historial = useMemo(
+    () => [
+      { ruta: "25 av. norte", bus: "36-C",  parada: "25 av norte",     dia: FECHA, hora: HORA },
+      { ruta: "Hospital Rosales", bus: "42-A",  parada: "Parque infantil", dia: FECHA, hora: HORA },
+      { ruta: "49 av. norte", bus: "109-B", parada: "Metrocentro",     dia: FECHA, hora: HORA },
+      { ruta: "Autop. Comalapa", bus: "12-B",  parada: "Paso el Jaguar",  dia: FECHA, hora: HORA },
+    ],
+    [FECHA, HORA]
+  );
+
   return (
-    <div className="min-h-dvh relative bg-[#0b0f1a] text-slate-100">
-      {/* borde celeste fino alrededor */}
-      <div className="pointer-events-none absolute inset-0 border border-[#62b0e6]"></div>
+    <div className="min-h-screen bg-[#0b0f1a] text-white">
+      <Header />
 
-      {/* barra superior */}
-      <header className="flex items-center justify-between px-8 pt-6">
-        <div className="flex items-center gap-4">
-          <img src={logo} alt="BusTrackSV" className="h-12 w-auto" />
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-slate-300">Hola, usuario</span>
-          <div className="h-10 w-10 grid place-items-center rounded-full bg-[#6aaee0] text-[#0b1733] text-xl">
-            ⍟
-          </div>
-        </div>
-      </header>
+      <main className="px-8 mt-10">
+        {/* Título y subrayado */}
+        <h1 className="text-4xl sm:text-[44px] font-semibold">Accesos rápidos con mapa</h1>
+        <div className="mt-3 h-[10px] w-40 rounded-full bg-[#6aaee0]" />
 
-      {/* título y subrayado */}
-      <section className="px-8 mt-10">
-        <h2 className="text-4xl sm:text-5xl font-semibold">Accesos rápidos con mapa</h2>
-        <div className="mt-4 h-3 w-48 rounded-full bg-[#6aaee0]" />
-      </section>
-
-      {/* contenedor de tarjetas */}
-      <section className="px-8 mt-10">
-        <div className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 px-6 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {stats.map((s) => (
-              <div
-                key={s.label}
-                className="rounded-xl bg-[#9cc5e6]/60 p-4 shadow-[0_10px_40px_rgba(0,0,0,.25)]"
-              >
-                <div className="rounded-lg bg-[#cfe5f7] px-6 py-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[#1a3350] font-semibold text-lg">{s.label}</p>
-                      <div className="mt-3 flex items-center gap-4">
-                        <img src={s.icon} alt={s.label} className="h-12 w-12 object-contain" />
-                        <span className="text-[#1a3350] text-3xl font-bold">1</span>
-                      </div>
-                    </div>
-                    {/* espacio a la derecha para respirar como en el mock */}
-                    <div className="w-4" />
-                  </div>
-                </div>
+        {/* ---------- Panel de tarjetas ---------- */}
+        <section className="mt-10">
+          <div className="mx-auto max-w-[1100px]">
+            <div className="rounded-[16px] bg-[#1e263b]/90 border border-white/10 px-10 py-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                <StatCard title="Buses"   iconSrc="/busDashboard.png" value={1} />
+                <StatCard title="Paradas" iconSrc="/Parada.png"       value={1} />
+                <StatCard title="Rutas"   iconSrc="/Ruta.png"         value={1} />
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* tabla historial */}
-      <section className="px-8 mt-10 pb-16">
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-          <div className="inline-flex items-center gap-2 rounded-full bg-[#3b4b6b] text-white px-5 py-2 text-lg">
-            <span className="font-semibold">Historial</span>
-            <span className="text-white/90">🕒</span>
-          </div>
-
-          <div className="mt-6 overflow-x-auto">
-            <div className="rounded-2xl overflow-hidden border border-white/10">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-[#62b0e6] text-[#103052]">
-                    <th className="px-6 py-3 text-left font-semibold">Ruta</th>
-                    <th className="px-6 py-3 text-left font-semibold">Bus</th>
-                    <th className="px-6 py-3 text-left font-semibold">Parada</th>
-                    <th className="px-6 py-3 text-left font-semibold">Día</th>
-                    <th className="px-6 py-3 text-left font-semibold">Hora</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historial.map((h, i) => (
-                    <tr key={i} className={i % 2 === 0 ? "bg-[#9cc5e6]/40" : "bg-[#9cc5e6]/20"}>
-                      <td className="px-6 py-4 text-slate-200">{h.ruta}</td>
-                      <td className="px-6 py-4 text-slate-200">{h.bus}</td>
-                      <td className="px-6 py-4 text-slate-200">{h.parada}</td>
-                      <td className="px-6 py-4 text-slate-200">{h.dia}</td>
-                      <td className="px-6 py-4 text-slate-200">{h.hora}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* ---------- Historial (igual al mock) ---------- */}
+        <section className="mt-10 pb-16">
+          <div className="mx-auto max-w-[1100px] rounded-xl bg-[#1f2740] border border-[#1f2740] px-4 pt-5 pb-6 relative">
+            
+            {/* Píldora "Historial" EXACTA */}
+            <div className="inline-flex items-center gap-4 rounded-[28px] px-6 py-3 bg-[#69AEE0] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] mb-6">
+              <span className="text-[24px] font-extrabold leading-none">Historial</span>
+              <img src="/Reloj.png" alt="Reloj" className="h-8 w-8 object-contain" />
+            </div>
+
+
+            {/* Tarjeta azul clara con tabla redondeada */}
+            <div className="relative z-[1] mx-auto max-w-[980px] rounded-[14px] overflow-hidden bg-[#77AEDD]">
+              <table className="w-full text-sm">
+                <thead>
+                      <tr className="bg-[#5EA0D6] text-white font-semibold">
+                        <th className="px-6 py-3 text-left">Ruta</th>
+                        <th className="px-6 py-3 text-left">Bus</th>
+                        <th className="px-6 py-3 text-left">Parada</th>
+                        <th className="px-6 py-3 text-left">Día</th>
+                        <th className="px-6 py-3 text-left">Hora</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historial.map((h, i) => (
+                        <tr key={i} className={i % 2 ? "bg-[#6CA6DA]" : "bg-[#A9C8E8]"}>
+                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.ruta}</td>
+                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.bus}</td>
+                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.parada}</td>
+                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.dia}</td>
+                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.hora}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
