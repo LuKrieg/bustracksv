@@ -1,5 +1,3 @@
-¡Aquí tienes tu README.md estructurado y corregido en un solo bloque de código listo para copiar y pegar en tu repositorio! He ajustado la redacción para mayor claridad y coherencia técnica:
-
 ```markdown
 # 🚌 BusTrackSV
 
@@ -133,7 +131,4 @@ SELECT * FROM paradas;
  ┣ 📜 README.md
  ┗ 📜 package.json / requirements.txt
 ```
-```
-
-¿Quieres que también te ayude a redactar la descripción del proyecto o agregar una sección de licencia y contribuciones? Estoy lista para ayudarte a dejarlo impecable.
 
