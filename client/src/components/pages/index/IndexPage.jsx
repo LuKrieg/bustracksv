@@ -5,7 +5,7 @@ const IndexPage = () => {
   return (
     <div className="min-h-screen bg-bg-primary">
       <Header />
-      <main className="w-full px-8 py-12">
+      <main className="w-full px-8 py-0">
         {/* Top Section - Two Columns */}
         <div className="grid grid-cols-12 gap-8 mb-4">
           {/* Top Left Column - Text Content */}

@@ -5,7 +5,7 @@ import { aboutData } from '../../../data/aboutData';
 const AboutPage = () => {
   return (
     <div 
-      className="min-h-screen relative"
+      className="h-screen relative flex flex-col"
       style={{
         backgroundImage: 'url(/fondo_info.png)',
         backgroundSize: 'cover',
@@ -18,7 +18,7 @@ const AboutPage = () => {
       <Header />
       
       {/* Main Content */}
-      <main className="relative z-10 w-full px-8 py-12">
+      <main className="relative z-10 w-full px-8 flex-1 flex items-center justify-center">
         <ContentBox data={aboutData} />
       </main>
     </div>
