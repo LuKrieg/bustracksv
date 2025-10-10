@@ -159,9 +159,9 @@ Una vez que hayas configurado el `.env` y ejecutado el backend (`npm start`), pu
   "rol": "admin|pasajero"
 }
 ```
-###2️⃣ Login
-####POST /login
-URL: http://localhost:4000/login
+### 2️⃣ Login
+#### HOST /login
+URL: http://localhost:4000/login.
 Body (JSON):
 ```
 {
@@ -169,15 +169,15 @@ Body (JSON):
   "password": "contraseña"
 }
 ```
-###3️⃣ Validar token
+### 3️⃣ Validar token
 ```
 Authorization: Bearer <tu_token>
 ```
-###4️⃣ Obtener todos los usuarios
-GET /usuarios
-URL: http://localhost:4000/usuarios
+### 4️⃣ Obtener todos los usuarios
+GET /usuarios.
+URL: http://localhost:4000/usuarios.
 
-###5️⃣ Obtener rutas y paradas
+### 5️⃣ Obtener rutas y paradas
 GET /rutas → lista de rutas.
 GET /paradas → lista de paradas con nombre de la ruta.
 ---
