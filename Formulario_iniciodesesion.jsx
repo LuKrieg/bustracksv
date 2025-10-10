@@ -1,5 +1,9 @@
 import { useState } from "react";
 
+/**
+ * BusTrackSV – Pantalla de Inicio de Sesión (React + Tailwind)
+ */
+
 export default function LoginPage({ onSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +24,7 @@ export default function LoginPage({ onSuccess }) {
     if (v) return setError(v);
     setLoading(true);
     try {
-      
+      // 🔌 simulación (cambia por tu backend real)
       await new Promise((r) => setTimeout(r, 800));
       if (password !== "bustrack") throw new Error("Credenciales inválidas");
       const data = { token: "demo-token", user: { email } };
@@ -82,7 +86,7 @@ export default function LoginPage({ onSuccess }) {
                   onClick={() => setShowPass((s) => !s)}
                   className="absolute inset-y-0 right-2 my-auto h-8 w-10 grid place-items-center rounded-lg border border-white/10 bg-white/5 text-lg"
                 >
-                  {showPass ? "🔓" : "🔒"}
+                  {showPass ? "🙈" : "👁️"}
                 </button>
               </div>
             </div>
