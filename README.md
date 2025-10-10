@@ -1,28 +1,28 @@
 ```markdown
-# 🚌 BusTrackSV
+# 🗃️ Guía para configurar la base de datos de BusTrackSV
 
-BusTrackSV es una aplicación diseñada para gestionar rutas de transporte público en El Salvador. Este proyecto incluye una base de datos en PostgreSQL con tablas de usuarios, rutas y paradas, y puede integrarse con un backend en Node.js o Python.
-
----
-
-## 🔧 Requisitos previos
-
-### Git
-- Descarga: [https://git-scm.com/downloads](https://git-scm.com/downloads)
-- Verifica instalación:
-  ```bash
-  git --version
-  ```
-
-### PostgreSQL (versión 15 o superior) + pgAdmin
-- Descarga: [https://www.postgresql.org/download/](https://www.postgresql.org/download/)
-- Recuerda la contraseña del usuario `postgres`.
-- Puerto por defecto: `5432`.
-- Asegúrate de instalar pgAdmin junto con PostgreSQL.
+Este documento explica cómo descargar, instalar y ejecutar correctamente la base de datos de este proyecto utilizando PostgreSQL.
 
 ---
 
-## 📥 1. Clonar el repositorio
+# 🔧 Requisitos previos
+
+**Git**  
+Descárgalo desde: https://git-scm.com/downloads  
+Verifica la instalación:  
+```bash
+git --version
+```
+
+**PostgreSQL (15 o superior) + pgAdmin**  
+Descárgalo desde: https://www.postgresql.org/download/  
+- Recuerda la contraseña del usuario `postgres`.  
+- Puerto por defecto: `5432`.  
+- Asegúrate de instalar pgAdmin incluido.
+
+---
+
+# 📥 1. Clonar el repositorio
 
 ```bash
 git clone https://github.com/tu-usuario/BusTrackSV.git
@@ -31,16 +31,16 @@ cd BusTrackSV
 
 ---
 
-## 🗄️ 2. Crear la base de datos
+# 🗄️ 2. Crear la base de datos
 
-### Opción A — Usando pgAdmin
-1. Abrir pgAdmin.
-2. Ir al servidor PostgreSQL.
-3. Clic derecho en “Databases” → Create → Database.
-4. Nombre sugerido: `bustracksv`.
-5. Guardar.
+**Opción A — Usando pgAdmin (recomendado)**  
+1. Abre pgAdmin y conéctate al servidor PostgreSQL.  
+2. Haz clic derecho en "Databases" → Create → Database.  
+3. Escribe el nombre de la base de datos, por ejemplo:  
+   `bustracksv`  
+4. Presiona "Save".
 
-### Opción B — Usando terminal (psql)
+**Opción B — Usando terminal (psql)**  
 ```bash
 psql -U postgres
 CREATE DATABASE bustracksv;
@@ -48,24 +48,27 @@ CREATE DATABASE bustracksv;
 
 ---
 
-## 🧩 3. Importar estructura y datos
+# 🧩 3. Importar la estructura y datos
 
-### Usando pgAdmin
-1. Abrir Query Tool.
-2. Pegar el contenido de `sql/init.sql`.
-3. Ejecutar.
+Si tu repositorio incluye `init.sql`:
 
-### Usando terminal
+**Con pgAdmin**  
+1. Selecciona la base de datos `bustracksv`.  
+2. Abre el Query Tool.  
+3. Haz clic en "Open File" y selecciona `sql/init.sql`.  
+4. Presiona "Ejecutar" (▶️).  
+> Todas las tablas (`usuarios`, `rutas`, `paradas`) y los datos se crearán automáticamente.
+
+**Con terminal**  
 ```bash
 psql -U postgres -d bustracksv -f sql/init.sql
 ```
-> Te pedirá la contraseña del usuario `postgres`.
 
 ---
 
-## ⚙️ 4. Configurar conexión (backend)
+# ⚙️ 4. Configurar conexión (backend)
 
-Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+Si el proyecto tiene un backend, crea un archivo `.env` con:
 
 ```env
 DB_HOST=localhost
@@ -75,17 +78,21 @@ DB_USER=postgres
 DB_PASSWORD=tu_contraseña
 ```
 
+⚠️ No subas este archivo a GitHub. Agrega `.env` al `.gitignore`.
+
 ---
 
-## ▶️ 5. Ejecutar el proyecto
+# ▶️ 5. Ejecutar el proyecto
 
-### Node.js
+**Dependiendo del backend:**
+
+**Node.js**  
 ```bash
 npm install
 npm start
 ```
 
-### Python (Flask/Django/FastAPI)
+**Python (Flask/Django/FastAPI)**  
 ```bash
 pip install -r requirements.txt
 python app.py
@@ -93,14 +100,11 @@ python app.py
 
 ---
 
-## 🧠 6. Verificación
+# 🧠 6. Verificación
 
-En pgAdmin, verifica que existan las siguientes tablas:
-- `usuarios`
-- `rutas`
-- `paradas`
+En pgAdmin, revisa que las tablas `usuarios`, `rutas` y `paradas` existan.
 
-Prueba con estas consultas:
+Ejecuta queries de ejemplo:
 ```sql
 SELECT * FROM usuarios;
 SELECT * FROM rutas;
@@ -109,7 +113,7 @@ SELECT * FROM paradas;
 
 ---
 
-## ❗ Errores comunes
+# ❗ Errores comunes
 
 | Error | Causa | Solución |
 |------|--------|----------|
@@ -119,7 +123,7 @@ SELECT * FROM paradas;
 
 ---
 
-## 📁 Estructura del repositorio
+# 📁 Estructura del repositorio
 
 ```
 📦 BusTrackSV
