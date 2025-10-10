@@ -1,11 +1,25 @@
 import Header from '../../layout/Header';
+import ContentBox from '../../layout/ContentBox';
+import { aboutData } from '../../../data/aboutData';
 
 const AboutPage = () => {
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div 
+      className="min-h-screen relative"
+      style={{
+        backgroundImage: 'url(/fondo_info.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      
+      {/* Header */}
       <Header />
-      <main className="w-full px-8 py-12">
-        <p className="text-text-primary text-2xl">About</p>
+      
+      {/* Main Content */}
+      <main className="relative z-10 w-full px-8 py-12">
+        <ContentBox data={aboutData} />
       </main>
     </div>
   );
