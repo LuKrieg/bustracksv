@@ -106,7 +106,6 @@ app.get("/validate", async (req, res) => {
     res.json({
       message: "Token válido",
       usuario: user.usuario,
-      rol: user.rol,
       id: user.id,
     });
   } catch (err) {
@@ -116,4 +115,5 @@ app.get("/validate", async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`✅ Servidor corriendo en http://localhost:${PORT}`));
+
 
