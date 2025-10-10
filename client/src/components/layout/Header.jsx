@@ -11,15 +11,15 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-bg-primary mx-8">
+    <header className="bg-bg-primary px-8 relative z-20">
       <div className="w-full px-8">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex justify-between items-center h-16 md:h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center">
             <img 
               src="/logo_full.png" 
               alt="BusTrackSV" 
-              className="h-16 w-auto"
+              className="h-12 md:h-16 w-auto"
             />
           </Link>
 
