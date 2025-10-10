@@ -1,14 +1,56 @@
--- Mostrar todos los usuarios
-SELECT id, usuario, rol, fecha_creacion
-FROM usuarios;
+-- Tabla de rutas
+CREATE TABLE rutas (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100),
+    descripcion TEXT,
+    color VARCHAR(10),
+    geometry GEOMETRY(LINESTRING, 4326)
+);
 
--- Mostrar rutas
-SELECT id, nombre, descripcion, color
-FROM rutas;
+-- Crear tabla de usuarios
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    usuario VARCHAR(100) NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- Mostrar paradas con nombre de la ruta
-SELECT p.id, p.nombre AS parada, p.orden, r.nombre AS ruta
-FROM paradas p
-JOIN rutas r ON p.id_ruta = r.id
-ORDER BY r.id, p.orden;
+-- Tabla de paradas
+CREATE TABLE paradas (
+    id SERIAL PRIMARY KEY,
+    id_ruta INT REFERENCES rutas(id),
+    nombre VARCHAR(100),
+    orden INT,
+    ubicacion GEOMETRY(POINT, 4326)
+);
 
+-- Inserta rutas
+INSERT INTO rutas (nombre, descripcion, color, geometry) VALUES
+    ('Ruta 29', 'San Salvador - Mejicanos', '#007bff',
+        ST_GeomFromText('LINESTRING(-89.2184 13.6923, -89.2075 13.6985, -89.2010 13.7052, -89.1950 13.7108)', 4326)
+    ),
+    ('Ruta 44', 'Soyapango - Centro de San Salvador', '#ff8800',
+        ST_GeomFromText('LINESTRING(-89.1850 13.7100, -89.1900 13.7040, -89.1985 13.6965, -89.2042 13.6920)', 4326)
+    ),
+    ('Ruta 52', 'Santa Tecla - San Salvador', '#00c851',
+        ST_GeomFromText('LINESTRING(-89.2905 13.6760, -89.2705 13.6810, -89.2500 13.6900, -89.2100 13.6950)', 4326)
+    );
+
+-- Inserta paradas
+INSERT INTO paradas (id_ruta, nombre, orden, ubicacion) VALUES
+    -- Ruta 29
+    (1, 'Terminal Mejicanos', 1, ST_SetSRID(ST_MakePoint(-89.2184, 13.6923), 4326)),
+    (1, 'UCA', 2, ST_SetSRID(ST_MakePoint(-89.2075, 13.6985), 4326)),
+    (1, 'Metrocentro', 3, ST_SetSRID(ST_MakePoint(-89.2010, 13.7052), 4326)),
+    (1, 'Parque Cuscatlán', 4, ST_SetSRID(ST_MakePoint(-89.1950, 13.7108), 4326)),
+
+    -- Ruta 44
+    (2, 'Plaza Mundo', 1, ST_SetSRID(ST_MakePoint(-89.1850, 13.7100), 4326)),
+    (2, 'Unicentro Soyapango', 2, ST_SetSRID(ST_MakePoint(-89.1900, 13.7040), 4326)),
+    (2, 'Hospital Bloom', 3, ST_SetSRID(ST_MakePoint(-89.1985, 13.6965), 4326)),
+    (2, 'Centro Histórico', 4, ST_SetSRID(ST_MakePoint(-89.2042, 13.6920), 4326)),
+
+    -- Ruta 52
+    (3, 'Terminal Santa Tecla', 1, ST_SetSRID(ST_MakePoint(-89.2905, 13.6760), 4326)),
+    (3, 'La Joya', 2, ST_SetSRID(ST_MakePoint(-89.2705, 13.6810), 4326)),
+    (3, 'La Ceiba de Guadalupe', 3, ST_SetSRID(ST_MakePoint(-89.2500, 13.6900), 4326)),
+    (3, 'Redondel Masferrer', 4, ST_SetSRID(ST_MakePoint(-89.2100, 13.6950), 4326));
