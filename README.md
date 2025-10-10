@@ -4,7 +4,7 @@ BusTrackSV es una aplicación para gestionar rutas de transporte público en El 
 
 ---
 
-# 🔧 Requisitos previos
+# Requisitos previos
 
 **Git**  
 Descárgalo desde: https://git-scm.com/downloads  
@@ -21,7 +21,7 @@ Descárgalo desde: https://www.postgresql.org/download/
 
 ---
 
-# 📥 1. Clonar el repositorio
+# 1. Clonar el repositorio
 
 ```bash
 git clone https://github.com/tu-usuario/BusTrackSV.git
@@ -30,7 +30,7 @@ cd BusTrackSV
 
 ---
 
-# 🗄️ 2. Crear la base de datos
+# 2. Crear la base de datos
 
 **Opción A — Usando pgAdmin (recomendado)**  
 1. Abre pgAdmin y conéctate al servidor PostgreSQL.  
@@ -47,7 +47,7 @@ CREATE DATABASE bustracksv;
 
 ---
 
-# 🧩 3. Importar la estructura y datos
+# 3. Importar la estructura y datos
 
 Si tu repositorio incluye `init.sql`:
 
@@ -65,7 +65,7 @@ psql -U postgres -d bustracksv -f sql/init.sql
 
 ---
 
-# 🔹 Restaurar la base de datos desde un archivo `.dump`
+# Restaurar la base de datos desde un archivo `.dump`
 
 Si tu compañera tiene el archivo `BusTrackSV.dump` descargado desde GitHub, puede restaurar la base de datos con los siguientes pasos:
 
@@ -86,7 +86,7 @@ Esto recreará todas las tablas y datos en su máquina.
 
 ---
 
-# ⚙️ 4. Configurar conexión (backend)
+# 4. Configurar conexión (backend)
 
 Si el proyecto tiene un backend, crea un archivo `.env` con:
 
@@ -113,7 +113,7 @@ Así, cuando ejecute `node index.js`, el backend se conectará a su base recién
 
 ---
 
-# ▶️ 5. Ejecutar el proyecto
+# 5. Ejecutar el proyecto
 
 **Dependiendo del backend:**
 
@@ -131,7 +131,7 @@ python app.py
 
 ---
 
-# 🧠 6. Verificación
+# 6. Verificación
 
 En pgAdmin, revisa que las tablas `usuarios`, `rutas` y `paradas` existan.
 
@@ -144,11 +144,11 @@ SELECT * FROM paradas;
 ---
 ---
 
-# ▶️ 7. Probar los endpoints (Node.js)
+# 7. Probar los endpoints (Node.js)
 
 Una vez que hayas configurado el `.env` y ejecutado el backend (`npm start`), puedes probar los endpoints usando Postman, Insomnia o cualquier cliente HTTP.
 
-### 1️⃣ Registro de usuario
+### 1️ Registro de usuario
 `POST /register`  
 - URL: `http://localhost:4000/register`  
 - Body (JSON):
@@ -159,7 +159,7 @@ Una vez que hayas configurado el `.env` y ejecutado el backend (`npm start`), pu
   "rol": "admin|pasajero"
 }
 ```
-### 2️⃣ Login
+### 2️ Login
 #### HOST /login
 URL: http://localhost:4000/login.
 Body (JSON):
@@ -169,20 +169,20 @@ Body (JSON):
   "password": "contraseña"
 }
 ```
-### 3️⃣ Validar token
+### 3️ Validar token
 ```
 Authorization: Bearer <tu_token>
 ```
-### 4️⃣ Obtener todos los usuarios
+### 4️ Obtener todos los usuarios
 GET /usuarios.
 URL: http://localhost:4000/usuarios.
 
-### 5️⃣ Obtener rutas y paradas
+### 5️ Obtener rutas y paradas
 GET /rutas → lista de rutas.
 GET /paradas → lista de paradas con nombre de la ruta.
 ---
 
-# ❗ Errores comunes
+# ❗Errores comunes
 
 | Error | Causa | Solución |
 |------|--------|----------|
@@ -192,7 +192,7 @@ GET /paradas → lista de paradas con nombre de la ruta.
 
 ---
 
-# 📁 Estructura del repositorio
+# Estructura del repositorio
 
 ```
 📦 BusTrackSV
