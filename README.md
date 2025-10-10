@@ -1,122 +1,139 @@
-Este documento explica cómo descargar, instalar y ejecutar correctamente la base de datos de este proyecto utilizando PostgreSQL.
+¡Aquí tienes tu README.md estructurado y corregido en un solo bloque de código listo para copiar y pegar en tu repositorio! He ajustado la redacción para mayor claridad y coherencia técnica:
 
-🔧 Requisitos previos
+```markdown
+# 🚌 BusTrackSV
 
-Git
-Descárgalo desde https://git-scm.com/downloads
-.
-Verifica la instalación:
+BusTrackSV es una aplicación diseñada para gestionar rutas de transporte público en El Salvador. Este proyecto incluye una base de datos en PostgreSQL con tablas de usuarios, rutas y paradas, y puede integrarse con un backend en Node.js o Python.
 
-git --version
+---
 
+## 🔧 Requisitos previos
 
-PostgreSQL (15 o superior) + pgAdmin
-Descárgalo desde https://www.postgresql.org/download/
-.
+### Git
+- Descarga: [https://git-scm.com/downloads](https://git-scm.com/downloads)
+- Verifica instalación:
+  ```bash
+  git --version
+  ```
 
-Recuerda la contraseña del usuario postgres.
+### PostgreSQL (versión 15 o superior) + pgAdmin
+- Descarga: [https://www.postgresql.org/download/](https://www.postgresql.org/download/)
+- Recuerda la contraseña del usuario `postgres`.
+- Puerto por defecto: `5432`.
+- Asegúrate de instalar pgAdmin junto con PostgreSQL.
 
-Puerto por defecto: 5432.
+---
 
-Asegúrate de instalar pgAdmin incluido.
+## 📥 1. Clonar el repositorio
 
-📥 1. Clonar el repositorio
+```bash
 git clone https://github.com/tu-usuario/BusTrackSV.git
 cd BusTrackSV
+```
 
-🗄️ 2. Crear la base de datos
-Opción A — Usando pgAdmin (recomendado)
+---
 
-Abre pgAdmin y conéctate al servidor PostgreSQL.
+## 🗄️ 2. Crear la base de datos
 
-Haz clic derecho en Databases → Create → Database.
+### Opción A — Usando pgAdmin
+1. Abrir pgAdmin.
+2. Ir al servidor PostgreSQL.
+3. Clic derecho en “Databases” → Create → Database.
+4. Nombre sugerido: `bustracksv`.
+5. Guardar.
 
-Escribe el nombre de la base de datos, por ejemplo:
-
-bustracksv
-
-
-Presiona Save.
-
-Opción B — Usando terminal (psql)
+### Opción B — Usando terminal (psql)
+```bash
 psql -U postgres
 CREATE DATABASE bustracksv;
+```
 
-🧩 3. Importar la estructura y datos
+---
 
-Si tu repositorio incluye init.sql:
+## 🧩 3. Importar estructura y datos
 
-Con pgAdmin
+### Usando pgAdmin
+1. Abrir Query Tool.
+2. Pegar el contenido de `sql/init.sql`.
+3. Ejecutar.
 
-Selecciona la base de datos bustracksv.
-
-Abre el Query Tool.
-
-Haz clic en Open File y selecciona sql/init.sql.
-
-Presiona Ejecutar (▶️).
-
-Todas las tablas (usuarios, rutas, paradas) y los datos se crearán automáticamente.
-
-Con terminal
+### Usando terminal
+```bash
 psql -U postgres -d bustracksv -f sql/init.sql
+```
+> Te pedirá la contraseña del usuario `postgres`.
 
-⚙️ 4. Configurar conexión (backend)
+---
 
-Si el proyecto tiene un backend, crea un archivo .env con:
+## ⚙️ 4. Configurar conexión (backend)
 
+Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+
+```env
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=bustracksv
 DB_USER=postgres
 DB_PASSWORD=tu_contraseña
+```
 
+---
 
-⚠️ No subas este archivo a GitHub. Agrega .env al .gitignore.
+## ▶️ 5. Ejecutar el proyecto
 
-▶️ 5. Ejecutar el proyecto
-
-Dependiendo del backend:
-
-Node.js
-
+### Node.js
+```bash
 npm install
 npm start
+```
 
-
-Python (Flask/Django/FastAPI)
-
+### Python (Flask/Django/FastAPI)
+```bash
 pip install -r requirements.txt
 python app.py
+```
 
-🧠 6. Verificación
+---
 
-En pgAdmin, revisa que las tablas usuarios, rutas y paradas existan.
+## 🧠 6. Verificación
 
-Ejecuta queries de ejemplo:
+En pgAdmin, verifica que existan las siguientes tablas:
+- `usuarios`
+- `rutas`
+- `paradas`
 
+Prueba con estas consultas:
+```sql
 SELECT * FROM usuarios;
 SELECT * FROM rutas;
 SELECT * FROM paradas;
+```
 
-❗ Errores comunes
-Error	Causa	Solución
-FATAL: la autentificación password falló para el usuario "postgres"	Contraseña incorrecta	Verifica la contraseña en .env y pgAdmin
-could not connect to server	PostgreSQL no está activo	Inicia el servicio PostgreSQL
-la extensión «postgis_topology» no está disponible	Falta PostGIS	Ejecuta CREATE EXTENSION postgis; si está instalada
-📁 Estructura del repositorio
+---
+
+## ❗ Errores comunes
+
+| Error | Causa | Solución |
+|------|--------|----------|
+| `FATAL: la autentificación password falló para el usuario "postgres"` | Contraseña incorrecta | Verifica la contraseña en `.env` y pgAdmin |
+| `could not connect to server` | PostgreSQL no está activo | Inicia el servicio PostgreSQL |
+| `la extensión «postgis_topology» no está disponible` | Falta PostGIS | Ejecuta `CREATE EXTENSION postgis;` si está instalada |
+
+---
+
+## 📁 Estructura del repositorio
+
+```
 📦 BusTrackSV
-
  ┣ 📂 sql/
- 
  ┃ ┗ 📜 init.sql
- 
  ┣ 📂 src/
- 
  ┃ ┗ ...
- 
  ┣ 📜 .env.example
- 
  ┣ 📜 README.md
- 
  ┗ 📜 package.json / requirements.txt
+```
+```
+
+¿Quieres que también te ayude a redactar la descripción del proyecto o agregar una sección de licencia y contribuciones? Estoy lista para ayudarte a dejarlo impecable.
+
