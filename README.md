@@ -1,7 +1,6 @@
+# 🚌 BusTrackSV
 
-# 🗃️ Guía para configurar la base de datos de BusTrackSV
-
-Este documento explica cómo descargar, instalar y ejecutar correctamente la base de datos de este proyecto utilizando PostgreSQL.
+BusTrackSV es una aplicación para gestionar rutas de transporte público en El Salvador. Incluye una base de datos en PostgreSQL con tablas de usuarios, rutas y paradas, y puede integrarse con un backend en Node.js o Python.
 
 ---
 
@@ -13,6 +12,7 @@ Verifica la instalación:
 ```bash
 git --version
 ```
+
 **PostgreSQL (15 o superior) + pgAdmin**  
 Descárgalo desde: https://www.postgresql.org/download/  
 - Recuerda la contraseña del usuario `postgres`.  
@@ -65,16 +65,49 @@ psql -U postgres -d bustracksv -f sql/init.sql
 
 ---
 
+# 🔹 Restaurar la base de datos desde un archivo `.dump`
+
+Si tu compañera tiene el archivo `BusTrackSV.dump` descargado desde GitHub, puede restaurar la base de datos con los siguientes pasos:
+
+1. Instalar PostgreSQL en su computadora.
+2. Crear la base vacía que se va a restaurar:
+   ```sql
+   CREATE DATABASE BusTrackSV;
+   ```
+3. Ejecutar el siguiente comando desde PowerShell o terminal:
+   ```bash
+   pg_restore -U su_usuario -d BusTrackSV BusTrackSV.dump
+   ```
+   - `-U su_usuario`: el usuario de PostgreSQL (por ejemplo, `postgres`)
+   - `-d BusTrackSV`: la base que creó para restaurar
+   - `BusTrackSV.dump`: el archivo que descargó de GitHub
+
+Esto recreará todas las tablas y datos en su máquina.
+
+---
+
 # ⚙️ 4. Configurar conexión (backend)
 
 Si el proyecto tiene un backend, crea un archivo `.env` con:
 
+```env
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=bustracksv
 DB_USER=postgres
 DB_PASSWORD=tu_contraseña
+``` 
+En el archivo `.env` del backend, debe colocar sus datos de PostgreSQL:
 
+```env
+DB_USER=su_usuario
+DB_PASSWORD=su_contraseña
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=BusTrackSV
+```
+
+Así, cuando ejecute `node index.js`, el backend se conectará a su base recién restaurada.
 
 ⚠️ No subas este archivo a GitHub. Agrega `.env` al `.gitignore`.
 
@@ -133,4 +166,3 @@ SELECT * FROM paradas;
  ┣ 📜 README.md
  ┗ 📜 package.json / requirements.txt
 ```
-
