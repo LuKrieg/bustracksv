@@ -106,10 +106,17 @@ could not connect to server	PostgreSQL no está activo	Inicia el servicio Postgr
 la extensión «postgis_topology» no está disponible	Falta PostGIS	Ejecuta CREATE EXTENSION postgis; si está instalada
 📁 Estructura del repositorio
 📦 BusTrackSV
+
  ┣ 📂 sql/
+ 
  ┃ ┗ 📜 init.sql
+ 
  ┣ 📂 src/
+ 
  ┃ ┗ ...
+ 
  ┣ 📜 .env.example
+ 
  ┣ 📜 README.md
+ 
  ┗ 📜 package.json / requirements.txt
