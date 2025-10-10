@@ -1,4 +1,4 @@
-```markdown
+
 # 🗃️ Guía para configurar la base de datos de BusTrackSV
 
 Este documento explica cómo descargar, instalar y ejecutar correctamente la base de datos de este proyecto utilizando PostgreSQL.
@@ -12,7 +12,6 @@ Descárgalo desde: https://git-scm.com/downloads
 Verifica la instalación:  
 ```bash
 git --version
-```
 
 **PostgreSQL (15 o superior) + pgAdmin**  
 Descárgalo desde: https://www.postgresql.org/download/  
@@ -70,13 +69,12 @@ psql -U postgres -d bustracksv -f sql/init.sql
 
 Si el proyecto tiene un backend, crea un archivo `.env` con:
 
-```env
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=bustracksv
 DB_USER=postgres
 DB_PASSWORD=tu_contraseña
-```
+
 
 ⚠️ No subas este archivo a GitHub. Agrega `.env` al `.gitignore`.
 
