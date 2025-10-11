@@ -91,7 +91,12 @@ app.get("/validate", authenticateToken, async (req, res) => {
   }
 });
 
+// 🔹 Endpoint de prueba en la raíz
+app.get("/", (req, res) => {
+  res.send("Backend funcionando ✅");
+});
 // 🔹 Iniciar servidor
 const PORT = process.env.PORT || 4000;
+
 app.listen(PORT, () => console.log(`✅ Servidor corriendo en http://localhost:${PORT}`));
 
