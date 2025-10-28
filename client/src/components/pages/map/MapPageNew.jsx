@@ -12,21 +12,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Función para crear iconos de paradas
-const crearIconoParada = (tipo, color = '#0EA5E9') => {
-  const iconoSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-    <circle cx="8" cy="8" r="7" fill="${color}" stroke="white" stroke-width="2"/>
-    <circle cx="8" cy="8" r="3" fill="white"/>
-  </svg>`;
-
-  return new L.Icon({
-    iconUrl: 'data:image/svg+xml;base64,' + btoa(iconoSVG),
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    popupAnchor: [0, -8],
-  });
-};
-
 // Iconos personalizados
 const iconoOrigen = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -161,7 +146,6 @@ export default function MapPageNew() {
   const [sugerenciasDestino, setSugerenciasDestino] = useState([]);
   
   const [resultados, setResultados] = useState(null);
-  const [rutaSeleccionada, setRutaSeleccionada] = useState(0); // Controla qué ruta mostrar en el mapa
 
   // Cargar paradas al iniciar
   useEffect(() => {
@@ -197,7 +181,7 @@ export default function MapPageNew() {
 
     if (origenInput === '') {
       const populares = paradas
-      .filter(p => p.tipo === 'Terminal' || p.tipo === 'TransferHub')
+        .filter(p => p.tipo === 'Terminal' || p.tipo === 'TransferHub')
         .sort((a, b) => (b.total_rutas || 0) - (a.total_rutas || 0))
         .slice(0, 10);
       setSugerenciasOrigen(populares);
@@ -240,7 +224,7 @@ export default function MapPageNew() {
     setOrigenSeleccionado({
       id: parada.id,
       nombre: parada.nombre,
-      lat: parseFloat(parada.latitud), 
+      lat: parseFloat(parada.latitud),
       lng: parseFloat(parada.longitud)
     });
   };
@@ -299,15 +283,7 @@ export default function MapPageNew() {
       );
 
       if (result.success) {
-        console.log('Resultados completos:', result.data);
-        console.log('Recomendaciones:', result.data.recomendaciones);
-        
-        // Depurar estructura de cada recomendación
-        if (result.data.recomendaciones && result.data.recomendaciones.length > 0) {
-          console.log('Primera recomendación:', result.data.recomendaciones[0]);
-          console.log('Segmentos de primera recomendación:', result.data.recomendaciones[0].segmentos);
-        }
-        
+        console.log('Resultados:', result.data);
         setResultados(result.data);
         
         if (result.data.recomendaciones && result.data.recomendaciones.length === 0) {
@@ -333,13 +309,6 @@ export default function MapPageNew() {
     setOrigenSeleccionado(null);
     setDestinoSeleccionado(null);
     setResultados(null);
-    setRutaSeleccionada(0);
-  };
-
-  const verRutaEnMapa = (index) => {
-    setRutaSeleccionada(index);
-    // Scroll suave al mapa
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -367,7 +336,7 @@ export default function MapPageNew() {
               <div className="space-y-4">
                 {/* Campo de origen */}
                 <AutocompleteInput
-                      value={origenInput}
+                  value={origenInput}
                   onChange={setOrigenInput}
                   suggestions={sugerenciasOrigen}
                   onSelect={handleSeleccionarOrigen}
@@ -378,7 +347,7 @@ export default function MapPageNew() {
 
                 {/* Campo de destino */}
                 <AutocompleteInput
-                    value={destinoInput}
+                  value={destinoInput}
                   onChange={setDestinoInput}
                   suggestions={sugerenciasDestino}
                   onSelect={handleSeleccionarDestino}
@@ -411,110 +380,70 @@ export default function MapPageNew() {
                       Rutas Encontradas ({resultados.recomendaciones.length})
                     </h3>
 
-                    {resultados.recomendaciones.map((rec, index) => {
-                      // Validar que rec y sus segmentos existen
-                      if (!rec || !rec.segmentos || rec.segmentos.length === 0) {
-                        return null;
-                      }
-                      
-                      // Obtener primer segmento (para rutas directas) o todos para transbordos
-                      const primerSegmento = rec.segmentos[0];
-                      const ruta = primerSegmento.ruta;
-                      
-                      if (!ruta) {
-                        return null;
-                      }
-                      
-                      return (
-                      <div 
-                        key={index} 
-                        className={`rounded-xl p-4 border-2 transition-all ${
-                          rutaSeleccionada === index 
-                            ? 'bg-gradient-to-r from-sky-600/40 to-purple-600/40 border-sky-400' 
-                            : 'bg-gradient-to-r from-sky-600/20 to-purple-600/20 border-sky-500/30'
-                        }`}
-                      >
+                    {resultados.recomendaciones.map((rec, index) => (
+                      <div key={index} className="bg-gradient-to-r from-sky-600/20 to-purple-600/20 rounded-xl p-4 border border-sky-500/30">
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <div className="text-lg font-bold text-white">
-                              Ruta {ruta.numero_ruta || 'N/A'}
-                              {rec.tipo === 'transbordo' && ` (+${rec.transbordos} transbordo${rec.transbordos > 1 ? 's' : ''})`}
+                              Ruta {rec.ruta.numero_ruta}
                             </div>
                             <div className="text-sm text-slate-300">
-                              {ruta.nombre || 'Sin nombre'}
+                              {rec.ruta.nombre}
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="text-xl font-bold text-sky-300">
-                              {rec.tiempoEstimadoMinutos || 30} min
+                              {rec.tiempo_total_minutos} min
                             </div>
                             <div className="text-xs text-slate-400">
-                              ${rec.tarifaTotal || ruta.tarifa || '0.00'}
+                              ${rec.ruta.tarifa}
                             </div>
                           </div>
                         </div>
 
-                        <div className="space-y-2 text-xs mb-3">
+                        <div className="space-y-2 text-xs">
                           <div className="flex items-start gap-2 bg-green-600/20 rounded p-2">
                             <div className="flex-shrink-0 w-3 h-3 bg-green-500 rounded-full mt-0.5"></div>
-                                <div>
+                            <div>
                               <div className="font-medium text-green-300">
-                                Sube: {primerSegmento.paradaOrigen?.nombre || 'N/A'}
+                                Sube: {rec.paradaOrigen.nombre}
                               </div>
                               <div className="text-slate-400">
-                                {rec.distanciaCaminataOrigenMetros ? Math.round(rec.distanciaCaminataOrigenMetros) : 0}m de tu origen
-                                </div>
+                                {Math.round(rec.distanciaCaminataOrigenMetros)}m de tu origen
                               </div>
                             </div>
-                            
+                          </div>
+
                           <div className="flex items-start gap-2 bg-red-600/20 rounded p-2">
                             <div className="flex-shrink-0 w-3 h-3 bg-red-500 rounded-full mt-0.5"></div>
                             <div>
                               <div className="font-medium text-red-300">
-                                Baja: {rec.segmentos[rec.segmentos.length - 1].paradaDestino?.nombre || 'N/A'}
+                                Baja: {rec.paradaDestino.nombre}
                               </div>
                               <div className="text-slate-400">
-                                {rec.distanciaCaminataDestinoMetros ? Math.round(rec.distanciaCaminataDestinoMetros) : 0}m de tu destino
+                                {Math.round(rec.distanciaCaminataDestinoMetros)}m de tu destino
                               </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
-                          <div className="flex gap-2">
-                                {index === 0 && (
-                                  <span className="inline-block bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-3 py-1 rounded-full">
-                                ⭐ Mejor Opción
-                                  </span>
-                                )}
-                                {rutaSeleccionada === index && (
-                                  <span className="inline-block bg-green-500/20 text-green-300 text-xs font-semibold px-3 py-1 rounded-full">
-                                👁️ Visible
-                                  </span>
-                                )}
-                              </div>
-                                <button
-                            onClick={() => verRutaEnMapa(index)}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                              rutaSeleccionada === index
-                                ? 'bg-green-600 text-white'
-                                : 'bg-sky-600 hover:bg-sky-700 text-white'
-                            }`}
-                          >
-                            {rutaSeleccionada === index ? '✓ Viendo' : '🗺️ Ver en Mapa'}
-                                </button>
                             </div>
                           </div>
-                      );
-                    })}
+                        </div>
+
+                        {index === 0 && (
+                          <div className="mt-2 text-center">
+                            <span className="inline-block bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-3 py-1 rounded-full">
+                              Mejor Opción
+                            </span>
                           </div>
                         )}
-                        
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {resultados && (!resultados.recomendaciones || resultados.recomendaciones.length === 0) && (
                   <div className="mt-6 bg-yellow-600/20 border border-yellow-500/30 rounded-lg p-4">
                     <div className="text-yellow-300 font-medium text-base mb-2">
                       {resultados.mensaje || 'No se encontraron rutas'}
-                                    </div>
+                    </div>
                     {resultados.sugerencia && (
                       <div className="text-sm text-slate-300 mt-2 mb-3">
                         {resultados.sugerencia}
@@ -556,15 +485,15 @@ export default function MapPageNew() {
                   />
                   
                   {origenSeleccionado && (
-                          <Marker
+                    <Marker 
                       position={[origenSeleccionado.lat, origenSeleccionado.lng]}
                       icon={iconoOrigen}
-                          >
-                            <Popup>
+                    >
+                      <Popup>
                         <div className="font-semibold">Origen</div>
                         <div className="text-sm">{origenSeleccionado.nombre}</div>
-                              </Popup>
-                            </Marker>
+                      </Popup>
+                    </Marker>
                   )}
                   
                   {destinoSeleccionado && (
@@ -579,109 +508,31 @@ export default function MapPageNew() {
                     </Marker>
                   )}
                   
-                  {/* MOSTRAR SOLO LA RUTA SELECCIONADA */}
-                  {resultados && resultados.recomendaciones && resultados.recomendaciones[rutaSeleccionada] && (() => {
-                    const rec = resultados.recomendaciones[rutaSeleccionada];
-                    
-                    // Validar que tenga segmentos
-                    if (!rec.segmentos || rec.segmentos.length === 0) {
-                      return null;
-                    }
-                    
-                    // Construir el array de posiciones asegurando que incluya origen y destino
-                    let positions = [];
-                    let todasLasParadas = [];
-                    
-                    // Agregar punto de origen si existe
-                    if (origenSeleccionado) {
-                      positions.push([origenSeleccionado.lat, origenSeleccionado.lng]);
-                    }
-                    
-                    // Recorrer todos los segmentos (para manejar transbordos)
-                    rec.segmentos.forEach((segmento, segIdx) => {
-                      // Agregar paradas intermedias del segmento
-                      if (segmento.paradasIntermedias && segmento.paradasIntermedias.length > 0) {
-                        const paradasPos = segmento.paradasIntermedias
-                          .filter(p => p.latitud && p.longitud)
-                          .map(p => [parseFloat(p.latitud), parseFloat(p.longitud)]);
-                        positions = positions.concat(paradasPos);
-                        todasLasParadas = todasLasParadas.concat(segmento.paradasIntermedias.map((p, idx) => ({
-                          ...p,
-                          segmentoIdx: segIdx,
-                          paradaIdx: idx
-                        })));
-                      }
-                    });
-                    
-                    // Agregar punto de destino si existe y no está ya incluido
-                    if (destinoSeleccionado) {
-                      const ultimaPos = positions[positions.length - 1];
-                      const esDistinto = !ultimaPos || 
-                        Math.abs(ultimaPos[0] - destinoSeleccionado.lat) > 0.0001 ||
-                        Math.abs(ultimaPos[1] - destinoSeleccionado.lng) > 0.0001;
-                      
-                      if (esDistinto) {
-                        positions.push([destinoSeleccionado.lat, destinoSeleccionado.lng]);
+                  {resultados && resultados.recomendaciones && resultados.recomendaciones.map((rec, index) => {
+                    if (rec.ruta.geometry) {
+                      try {
+                        const coords = typeof rec.ruta.geometry === 'string' 
+                          ? JSON.parse(rec.ruta.geometry).coordinates 
+                          : rec.ruta.geometry.coordinates;
+                        const positions = coords.map(coord => [coord[1], coord[0]]);
+                        return (
+                          <Polyline
+                            key={index}
+                            positions={positions}
+                            pathOptions={{ 
+                              color: rec.ruta.color || '#0066CC',
+                              weight: index === 0 ? 5 : 3,
+                              opacity: index === 0 ? 0.9 : 0.6
+                            }}
+                          />
+                        );
+                      } catch (e) {
+                        console.error('Error al procesar geometría:', e);
+                        return null;
                       }
                     }
-                    
-                    // Solo dibujar si hay al menos 2 puntos
-                    if (positions.length < 2) {
-                      return null;
-                    }
-                    
-                    return (
-                      <>
-                        {/* Borde blanco para contraste */}
-                        <Polyline
-                          positions={positions}
-                          pathOptions={{ 
-                            color: '#FFFFFF',
-                            weight: 9,
-                            opacity: 0.5,
-                            lineCap: 'round',
-                            lineJoin: 'round'
-                          }}
-                        />
-                        {/* Línea principal azul brillante */}
-                        <Polyline
-                          positions={positions}
-                          pathOptions={{ 
-                            color: '#0EA5E9',
-                            weight: 7,
-                            opacity: 1,
-                            lineCap: 'round',
-                            lineJoin: 'round'
-                          }}
-                        />
-                        
-                        {/* Marcadores de paradas intermedias SOLO de la ruta seleccionada */}
-                        {todasLasParadas.map((parada, idx) => {
-                          // No mostrar primera y última parada (ya están como origen/destino)
-                          if (idx === 0 || idx === todasLasParadas.length - 1) {
-                            return null;
-                          }
-                          
-                          return (
-                            <Marker
-                              key={`parada-${parada.id}-${idx}`}
-                              position={[parseFloat(parada.latitud), parseFloat(parada.longitud)]}
-                              icon={crearIconoParada('parada', '#0EA5E9')}
-                            >
-                      <Popup>
-                                <div className="text-sm">
-                                  <strong>{parada.nombre}</strong>
-                                  <div className="text-xs text-gray-600 mt-1">
-                                    Parada {idx + 1} de {todasLasParadas.length}
-                                  </div>
-                        </div>
-                      </Popup>
-                    </Marker>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
+                    return null;
+                  })}
                 </MapContainer>
               </div>
             </div>

@@ -196,14 +196,14 @@ class SQLitePool {
 }
 
 // Inicializar y exportar
-let poolInstance = null;
+let pool = null;
 
 async function getPool() {
-  if (!poolInstance) {
+  if (!pool) {
     await initDatabase();
-    poolInstance = new SQLitePool(db);
+    pool = new SQLitePool(db);
   }
-  return poolInstance;
+  return pool;
 }
 
 // Función para probar la conexión
@@ -244,4 +244,6 @@ process.on('SIGINT', () => {
   }
   process.exit(0);
 });
+
+
 

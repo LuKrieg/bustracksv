@@ -97,13 +97,19 @@ export const AuthProvider = ({ children }) => {
     return !!user;
   };
 
+  // Función para actualizar el usuario (útil después de actualizar el perfil)
+  const updateUser = (userData) => {
+    setUser(userData);
+  };
+
   const value = {
     user,
     loading,
     login,
     register,
     logout,
-    isAuthenticated
+    isAuthenticated,
+    updateUser
   };
 
   return (

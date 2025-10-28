@@ -9,6 +9,7 @@ import LoginPage from '../components/pages/login/LoginPage';
 import RegisterPage from '../components/pages/register/RegisterPage';
 import DashboardPage from '../components/pages/dashboard/DashboardPage';
 import MapPage from '../components/pages/map/MapPage';
+import ProfilePage from '../components/pages/profile/ProfilePage';
 
 export const router = createBrowserRouter([
   {
@@ -44,6 +45,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <MapPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/perfil',
+    element: (
+      <ProtectedRoute>
+        <ProfilePage />
       </ProtectedRoute>
     ),
   },

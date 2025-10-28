@@ -1,5 +1,6 @@
 import Header from "../../layout/Header";
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
+import historialService from "../../../services/historialService";
 
 /* ---------- Tarjeta estilo mock ---------- */
 const StatCard = ({ title, iconSrc, value = 1 }) => (
@@ -21,19 +22,33 @@ const StatCard = ({ title, iconSrc, value = 1 }) => (
 );
 
 export default function DashboardPage() {
-  // Cambia la fecha si lo querés 2022 como en el mock
-  const FECHA = "03/10/25"; // para 2022: "03/10/22"
-  const HORA  = "12:00 PM";
+  const [historial, setHistorial] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const historial = useMemo(
-    () => [
-      { ruta: "25 av. norte", bus: "36-C",  parada: "25 av norte",     dia: FECHA, hora: HORA },
-      { ruta: "Hospital Rosales", bus: "42-A",  parada: "Parque infantil", dia: FECHA, hora: HORA },
-      { ruta: "49 av. norte", bus: "109-B", parada: "Metrocentro",     dia: FECHA, hora: HORA },
-      { ruta: "Autop. Comalapa", bus: "12-B",  parada: "Paso el Jaguar",  dia: FECHA, hora: HORA },
-    ],
-    [FECHA, HORA]
-  );
+  useEffect(() => {
+    cargarHistorial();
+  }, []);
+
+  const cargarHistorial = async () => {
+    setLoading(true);
+    const result = await historialService.obtenerHistorial(10); // Obtener últimas 10 búsquedas
+    if (result.success) {
+      setHistorial(result.data.historial);
+    }
+    setLoading(false);
+  };
+
+  const formatearFecha = (fecha) => {
+    if (!fecha) return 'N/A';
+    const date = new Date(fecha);
+    return date.toLocaleDateString('es-SV', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  };
+
+  const formatearHora = (fecha) => {
+    if (!fecha) return 'N/A';
+    const date = new Date(fecha);
+    return date.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
 
   return (
     <div className="min-h-screen bg-[#0b0f1a] text-white">
@@ -70,28 +85,39 @@ export default function DashboardPage() {
 
             {/* Tarjeta azul clara con tabla redondeada */}
             <div className="relative z-[1] mx-auto max-w-[980px] rounded-[14px] overflow-hidden bg-[#77AEDD]">
-              <table className="w-full text-sm">
-                <thead>
-                      <tr className="bg-[#5EA0D6] text-white font-semibold">
-                        <th className="px-6 py-3 text-left">Ruta</th>
-                        <th className="px-6 py-3 text-left">Bus</th>
-                        <th className="px-6 py-3 text-left">Parada</th>
-                        <th className="px-6 py-3 text-left">Día</th>
-                        <th className="px-6 py-3 text-left">Hora</th>
+              {loading ? (
+                <div className="py-10 text-center text-[#0f2b4a]">
+                  <p className="text-lg font-semibold">Cargando historial...</p>
+                </div>
+              ) : historial.length === 0 ? (
+                <div className="py-10 text-center text-[#0f2b4a]">
+                  <p className="text-lg font-semibold">No hay búsquedas en tu historial</p>
+                  <p className="text-sm mt-2">Comienza a buscar rutas en el mapa para ver tu historial aquí</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#5EA0D6] text-white font-semibold">
+                      <th className="px-6 py-3 text-left">Ruta</th>
+                      <th className="px-6 py-3 text-left">Bus</th>
+                      <th className="px-6 py-3 text-left">Parada</th>
+                      <th className="px-6 py-3 text-left">Día</th>
+                      <th className="px-6 py-3 text-left">Hora</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historial.map((h, i) => (
+                      <tr key={h.id || i} className={i % 2 ? "bg-[#6CA6DA]" : "bg-[#A9C8E8]"}>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.ruta || 'N/A'}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.numero_ruta || 'N/A'}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.parada || 'N/A'}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{formatearFecha(h.fecha_busqueda)}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{formatearHora(h.fecha_busqueda)}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {historial.map((h, i) => (
-                        <tr key={i} className={i % 2 ? "bg-[#6CA6DA]" : "bg-[#A9C8E8]"}>
-                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.ruta}</td>
-                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.bus}</td>
-                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.parada}</td>
-                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.dia}</td>
-                          <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.hora}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </section>

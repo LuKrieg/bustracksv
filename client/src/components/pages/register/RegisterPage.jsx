@@ -5,6 +5,9 @@ export default function RegisterPage({ onSuccess }) {
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [nombreCompleto, setNombreCompleto] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,6 +19,9 @@ export default function RegisterPage({ onSuccess }) {
   const validate = () => {
     if (!usuario.trim()) return "Ingresa un nombre de usuario.";
     if (usuario.length < 3) return "El usuario debe tener al menos 3 caracteres.";
+    if (!email.trim()) return "Ingresa un email válido.";
+    if (!email.includes("@")) return "El email debe ser válido.";
+    if (!nombreCompleto.trim()) return "Ingresa tu nombre completo.";
     if (password.length < 6) return "La contraseña debe tener al menos 6 caracteres.";
     if (password !== confirmPassword) return "Las contraseñas no coinciden.";
     return "";
@@ -31,7 +37,13 @@ export default function RegisterPage({ onSuccess }) {
     
     setLoading(true);
     try {
-      const result = await register({ usuario, password });
+      const result = await register({ 
+        usuario, 
+        password, 
+        email, 
+        nombre_completo: nombreCompleto, 
+        telefono 
+      });
       
       if (result.success) {
         setSuccess(result.message);
@@ -39,6 +51,9 @@ export default function RegisterPage({ onSuccess }) {
         setUsuario("");
         setPassword("");
         setConfirmPassword("");
+        setEmail("");
+        setNombreCompleto("");
+        setTelefono("");
         
         // Si hay callback de éxito, ejecutarlo
         if (typeof onSuccess === "function") {
@@ -84,6 +99,41 @@ export default function RegisterPage({ onSuccess }) {
                 onChange={(e) => setUsuario(e.target.value)}
                 className="w-full h-11 rounded-xl bg-[#141a35] text-slate-100 placeholder:text-slate-400 border border-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 px-4"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Email</label>
+              <input
+                type="email"
+                placeholder="tu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full h-11 rounded-xl bg-[#141a35] text-slate-100 placeholder:text-slate-400 border border-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 px-4"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Nombre Completo</label>
+              <input
+                type="text"
+                placeholder="Tu nombre completo"
+                value={nombreCompleto}
+                onChange={(e) => setNombreCompleto(e.target.value)}
+                className="w-full h-11 rounded-xl bg-[#141a35] text-slate-100 placeholder:text-slate-400 border border-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 px-4"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Teléfono (opcional)</label>
+              <input
+                type="tel"
+                placeholder="Tu número de teléfono"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                className="w-full h-11 rounded-xl bg-[#141a35] text-slate-100 placeholder:text-slate-400 border border-white/10 focus:outline-none focus:ring-2 focus:ring-sky-400 px-4"
               />
             </div>
 

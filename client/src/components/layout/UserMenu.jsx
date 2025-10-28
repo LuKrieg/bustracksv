@@ -1,18 +1,32 @@
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const UserMenu = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handlePerfilClick = () => {
+    navigate('/perfil');
+  };
 
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div>
         <Menu.Button className="flex items-center space-x-3 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors duration-200">
-          <div className="w-10 h-10 bg-accent-blue rounded-full flex items-center justify-center">
-            <span className="text-text-primary text-lg font-medium">
-              {user?.usuario?.charAt(0).toUpperCase()}
-            </span>
+          <div className="w-10 h-10 bg-accent-blue rounded-full flex items-center justify-center overflow-hidden">
+            {user?.foto_perfil ? (
+              <img 
+                src={user.foto_perfil} 
+                alt="Foto de perfil" 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-text-primary text-lg font-medium">
+                {user?.usuario?.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
           <span className="text-lg text-text-secondary">
             Hola, {user?.usuario}
@@ -34,6 +48,7 @@ const UserMenu = () => {
             <Menu.Item>
               {({ active }) => (
                 <button
+                  onClick={handlePerfilClick}
                   className={`${
                     active ? 'bg-gray-700 text-text-primary' : 'text-text-secondary'
                   } group flex w-full items-center px-4 py-2 text-sm transition-colors duration-200`}

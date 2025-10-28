@@ -7,6 +7,9 @@ class AuthService {
       const response = await apiClient.post("/register", {
         usuario: userData.usuario,
         password: userData.password,
+        email: userData.email,
+        nombre_completo: userData.nombre_completo,
+        telefono: userData.telefono,
       });
 
       return {
@@ -33,24 +36,36 @@ class AuthService {
 
       const { token, usuario } = response.data;
 
-      // Guardar token y datos del usuario en localStorage
+      // Guardar token
       localStorage.setItem("bustracksv:token", token);
-      localStorage.setItem(
-        "bustracksv:user",
-        JSON.stringify({
-          usuario,
-          token,
-        })
-      );
 
-      return {
-        success: true,
-        message: response.data.message,
-        user: {
-          usuario,
+      // Obtener perfil completo del usuario
+      try {
+        const perfilResponse = await apiClient.get("/perfil");
+        const perfilCompleto = {
+          ...perfilResponse.data,
           token,
-        },
-      };
+        };
+
+        // Guardar datos completos del usuario en localStorage
+        localStorage.setItem("bustracksv:user", JSON.stringify(perfilCompleto));
+
+        return {
+          success: true,
+          message: response.data.message,
+          user: perfilCompleto,
+        };
+      } catch (perfilError) {
+        // Si falla obtener el perfil, usar datos básicos
+        const datosBasicos = { usuario, token };
+        localStorage.setItem("bustracksv:user", JSON.stringify(datosBasicos));
+        
+        return {
+          success: true,
+          message: response.data.message,
+          user: datosBasicos,
+        };
+      }
     } catch (error) {
       return {
         success: false,
@@ -71,27 +86,19 @@ class AuthService {
         };
       }
 
-      const response = await apiClient.get("/validate");
-
-      const { usuario, id } = response.data;
+      // Obtener perfil completo del usuario
+      const perfilResponse = await apiClient.get("/perfil");
+      const perfilCompleto = {
+        ...perfilResponse.data,
+        token,
+      };
 
       // Actualizar datos del usuario en localStorage
-      localStorage.setItem(
-        "bustracksv:user",
-        JSON.stringify({
-          id,
-          usuario,
-          token,
-        })
-      );
+      localStorage.setItem("bustracksv:user", JSON.stringify(perfilCompleto));
 
       return {
         success: true,
-        user: {
-          id,
-          usuario,
-          token,
-        },
+        user: perfilCompleto,
       };
     } catch (error) {
       // Si el token es inválido, limpiar localStorage
