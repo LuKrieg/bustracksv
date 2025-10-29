@@ -2,6 +2,12 @@
 
 Sistema inteligente de seguimiento y planificación de rutas de transporte público para El Salvador.
 
+> ⚡ **NUEVO**: Base de datos expandida con 80+ rutas y **250+ paradas**
+> 
+> 🚀 **[→ INICIO RÁPIDO: Implementa la expansión en 5 minutos](./INICIO_RAPIDO.md)** ⭐
+> 
+> 🎯 **NUEVO**: Búsqueda mejorada con **20 sugerencias** en vez de 10 - **[Ver instrucciones](./MAS_PARADAS_INSTRUCCIONES.md)**
+
 ## 🎯 Características
 
 - ✅ **Registro y autenticación de usuarios**
@@ -10,6 +16,40 @@ Sistema inteligente de seguimiento y planificación de rutas de transporte públ
 - ✅ **Búsqueda de rutas de buses**
 - ✅ **Visualización en mapa interactivo**
 - ✅ **Base de datos SQLite (no requiere PostgreSQL)**
+- 🆕 **Base de datos EXPANDIDA: 80+ rutas y 150+ paradas**
+- 🆕 **Sistema de recomendación inteligente de rutas**
+- 🆕 **Búsqueda por proximidad geográfica**
+- 🆕 **Algoritmo de rutas con transbordos**
+
+## 📊 Base de Datos Expandida
+
+BusTrackSV ahora incluye una base de datos significativamente expandida:
+
+| Característica | Cantidad |
+|----------------|----------|
+| **Rutas de Buses** | 80+ |
+| **Paradas Estratégicas** | 250+ 🆕 |
+| **Sugerencias de Búsqueda** | 20 (antes: 10) 🆕 |
+| **Cobertura** | Todo el AMSS |
+| **Fuentes** | VMT + bus.sv + Datos Oficiales |
+
+### 🚀 Importar Datos Expandidos
+
+**Opción 1: 250+ paradas (RECOMENDADO para más opciones de búsqueda)**
+```bash
+cd server
+node import-super-expanded-data.js
+```
+
+**Opción 2: 156 paradas (versión original expandida)**
+```bash
+cd server
+node import-expanded-data.js
+```
+
+📖 **Documentación completa**: Ver [DATOS_EXPANDIDOS_README.md](./DATOS_EXPANDIDOS_README.md)
+⚡ **Guía rápida**: Ver [GUIA_RAPIDA_EXPANSION.md](./GUIA_RAPIDA_EXPANSION.md)
+🎯 **Más paradas**: Ver [MAS_PARADAS_INSTRUCCIONES.md](./MAS_PARADAS_INSTRUCCIONES.md) 🆕
 
 ## 🚀 Inicio Rápido
 
