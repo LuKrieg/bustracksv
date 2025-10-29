@@ -20,9 +20,15 @@ export default function BuscarRutasPage() {
   }, []);
 
   const cargarParadas = async () => {
+    console.log('🔍 Cargando paradas desde el servidor...');
     const result = await routeService.getParadas();
+    console.log('📊 Resultado:', result);
     if (result.success) {
       setParadas(result.data);
+      console.log(`✅ ${result.data.length} paradas cargadas!`);
+    } else {
+      console.error('❌ Error al cargar paradas:', result);
+      alert('⚠️ No se pudieron cargar las paradas. ¿Está el servidor corriendo?');
     }
   };
 
@@ -30,16 +36,39 @@ export default function BuscarRutasPage() {
     const value = e.target.value;
     setOrigen(value);
     
-    if (value.length > 0) {
+    console.log(`📝 Escribiendo origen: "${value}"`);
+    console.log(`📦 Total paradas disponibles: ${paradas.length}`);
+    
+    // Mostrar automáticamente mientras escribe
+    if (value.length === 0) {
+      // Si está vacío, mostrar las primeras 20
+      const primeras = paradas.slice(0, 20);
+      setSugerenciasOrigen(primeras);
+      setMostrarOrigen(true);
+      console.log(`✅ Mostrando ${primeras.length} paradas iniciales`);
+    } else {
+      // Filtrar mientras escribe
       const filtradas = paradas.filter(p =>
         p.nombre.toLowerCase().includes(value.toLowerCase()) ||
-        (p.zona && p.zona.toLowerCase().includes(value.toLowerCase()))
+        (p.zona && p.zona.toLowerCase().includes(value.toLowerCase())) ||
+        (p.direccion && p.direccion.toLowerCase().includes(value.toLowerCase())) ||
+        (p.codigo && p.codigo.toLowerCase().includes(value.toLowerCase()))
       );
-      setSugerenciasOrigen(filtradas.slice(0, 10));
-      setMostrarOrigen(true);
-    } else {
-      setSugerenciasOrigen([]);
-      setMostrarOrigen(false);
+      
+      console.log(`🔍 Encontradas ${filtradas.length} paradas que coinciden`);
+      
+      // Ordenar: primero las que empiezan con lo que escribió
+      const ordenadas = filtradas.sort((a, b) => {
+        const aStartsWith = a.nombre.toLowerCase().startsWith(value.toLowerCase());
+        const bStartsWith = b.nombre.toLowerCase().startsWith(value.toLowerCase());
+        if (aStartsWith && !bStartsWith) return -1;
+        if (!aStartsWith && bStartsWith) return 1;
+        return 0;
+      });
+      
+      setSugerenciasOrigen(ordenadas.slice(0, 20));
+      setMostrarOrigen(ordenadas.length > 0);
+      console.log(`✅ Mostrando ${Math.min(ordenadas.length, 20)} sugerencias`);
     }
   };
 
@@ -47,16 +76,31 @@ export default function BuscarRutasPage() {
     const value = e.target.value;
     setDestino(value);
     
-    if (value.length > 0) {
-      const filtradas = paradas.filter(p =>
-        p.nombre.toLowerCase().includes(value.toLowerCase()) ||
-        (p.zona && p.zona.toLowerCase().includes(value.toLowerCase()))
-      );
-      setSugerenciasDestino(filtradas.slice(0, 10));
+    // Mostrar automáticamente mientras escribe
+    if (value.length === 0) {
+      // Si está vacío, mostrar las primeras 20
+      setSugerenciasDestino(paradas.slice(0, 20));
       setMostrarDestino(true);
     } else {
-      setSugerenciasDestino([]);
-      setMostrarDestino(false);
+      // Filtrar mientras escribe
+      const filtradas = paradas.filter(p =>
+        p.nombre.toLowerCase().includes(value.toLowerCase()) ||
+        (p.zona && p.zona.toLowerCase().includes(value.toLowerCase())) ||
+        (p.direccion && p.direccion.toLowerCase().includes(value.toLowerCase())) ||
+        (p.codigo && p.codigo.toLowerCase().includes(value.toLowerCase()))
+      );
+      
+      // Ordenar: primero las que empiezan con lo que escribió
+      const ordenadas = filtradas.sort((a, b) => {
+        const aStartsWith = a.nombre.toLowerCase().startsWith(value.toLowerCase());
+        const bStartsWith = b.nombre.toLowerCase().startsWith(value.toLowerCase());
+        if (aStartsWith && !bStartsWith) return -1;
+        if (!aStartsWith && bStartsWith) return 1;
+        return 0;
+      });
+      
+      setSugerenciasDestino(ordenadas.slice(0, 20));
+      setMostrarDestino(ordenadas.length > 0);
     }
   };
 
@@ -123,33 +167,44 @@ export default function BuscarRutasPage() {
               {/* Origen */}
               <div className="relative">
                 <label className="block text-white font-semibold mb-2">
-                  📍 Origen
+                  📍 Origen {sugerenciasOrigen.length > 0 && mostrarOrigen && (
+                    <span className="text-sm text-blue-300">({sugerenciasOrigen.length} opciones)</span>
+                  )}
                 </label>
                 <input
                   type="text"
                   value={origen}
                   onChange={handleOrigenChange}
                   onFocus={() => {
-                    if (paradas.length > 0 && origen === '') {
-                      setSugerenciasOrigen(paradas.slice(0, 10));
+                    if (paradas.length > 0) {
+                      if (origen === '') {
+                        setSugerenciasOrigen(paradas.slice(0, 20));
+                      }
                       setMostrarOrigen(true);
                     }
                   }}
-                  placeholder="Escribe para buscar..."
+                  placeholder="Escribe cualquier cosa... (ej: metro, hospital, san)"
                   className="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 
                 {mostrarOrigen && sugerenciasOrigen.length > 0 && (
-                  <div className="absolute z-50 w-full mt-2 bg-slate-800 rounded-lg shadow-xl border border-slate-700 max-h-64 overflow-y-auto">
-                    {sugerenciasOrigen.map((parada) => (
+                  <div className="absolute z-50 w-full mt-2 bg-slate-800 rounded-lg shadow-xl border border-blue-500 max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                    {sugerenciasOrigen.map((parada, index) => (
                       <button
                         key={parada.id}
                         onClick={() => seleccionarOrigen(parada)}
-                        className="w-full text-left px-4 py-3 hover:bg-slate-700 border-b border-slate-700 transition"
+                        className="w-full text-left px-4 py-3 hover:bg-blue-600 hover:text-white border-b border-slate-700 transition-all hover:scale-[1.01]"
+                        style={{ animationDelay: `${index * 20}ms` }}
                       >
-                        <div className="font-semibold text-white">{parada.nombre}</div>
+                        <div className="font-semibold text-white flex items-center gap-2">
+                          <span className="text-blue-400">📍</span>
+                          {parada.nombre}
+                        </div>
                         {parada.zona && (
-                          <div className="text-sm text-slate-400">{parada.zona}</div>
+                          <div className="text-sm text-slate-300 ml-6">{parada.zona}</div>
+                        )}
+                        {parada.direccion && (
+                          <div className="text-xs text-slate-400 ml-6 mt-1">{parada.direccion}</div>
                         )}
                       </button>
                     ))}
@@ -160,33 +215,44 @@ export default function BuscarRutasPage() {
               {/* Destino */}
               <div className="relative">
                 <label className="block text-white font-semibold mb-2">
-                  🎯 Destino
+                  🎯 Destino {sugerenciasDestino.length > 0 && mostrarDestino && (
+                    <span className="text-sm text-blue-300">({sugerenciasDestino.length} opciones)</span>
+                  )}
                 </label>
                 <input
                   type="text"
                   value={destino}
                   onChange={handleDestinoChange}
                   onFocus={() => {
-                    if (paradas.length > 0 && destino === '') {
-                      setSugerenciasDestino(paradas.slice(0, 10));
+                    if (paradas.length > 0) {
+                      if (destino === '') {
+                        setSugerenciasDestino(paradas.slice(0, 20));
+                      }
                       setMostrarDestino(true);
                     }
                   }}
-                  placeholder="Escribe para buscar..."
+                  placeholder="Escribe cualquier cosa... (ej: centro, plaza, universidad)"
                   className="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 
                 {mostrarDestino && sugerenciasDestino.length > 0 && (
-                  <div className="absolute z-50 w-full mt-2 bg-slate-800 rounded-lg shadow-xl border border-slate-700 max-h-64 overflow-y-auto">
-                    {sugerenciasDestino.map((parada) => (
+                  <div className="absolute z-50 w-full mt-2 bg-slate-800 rounded-lg shadow-xl border border-blue-500 max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                    {sugerenciasDestino.map((parada, index) => (
                       <button
                         key={parada.id}
                         onClick={() => seleccionarDestino(parada)}
-                        className="w-full text-left px-4 py-3 hover:bg-slate-700 border-b border-slate-700 transition"
+                        className="w-full text-left px-4 py-3 hover:bg-blue-600 hover:text-white border-b border-slate-700 transition-all hover:scale-[1.01]"
+                        style={{ animationDelay: `${index * 20}ms` }}
                       >
-                        <div className="font-semibold text-white">{parada.nombre}</div>
+                        <div className="font-semibold text-white flex items-center gap-2">
+                          <span className="text-green-400">🎯</span>
+                          {parada.nombre}
+                        </div>
                         {parada.zona && (
-                          <div className="text-sm text-slate-400">{parada.zona}</div>
+                          <div className="text-sm text-slate-300 ml-6">{parada.zona}</div>
+                        )}
+                        {parada.direccion && (
+                          <div className="text-xs text-slate-400 ml-6 mt-1">{parada.direccion}</div>
                         )}
                       </button>
                     ))}
