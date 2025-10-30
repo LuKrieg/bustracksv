@@ -460,7 +460,7 @@ export default function MapPageNew() {
                             {/* Numeración de paradas principal */}
                             <div className="bg-gradient-to-r from-sky-500/20 to-purple-500/20 rounded-lg p-3 mb-3">
                               <div className="text-xs font-semibold text-sky-300 mb-2">
-                                📍 Tu viaje en {rec.segmentos.length} buses ({rec.transbordos} transbordo{rec.transbordos > 1 ? 's' : ''}):
+                                Tu viaje en {rec.segmentos.length} buses ({rec.transbordos} transbordo{rec.transbordos > 1 ? 's' : ''}):
                               </div>
                               <div className="space-y-1">
                                 {rec.segmentos.map((segmento, segIdx) => (
@@ -494,7 +494,7 @@ export default function MapPageNew() {
                                           {segmento.paradaDestino?.nombre}
                                         </span>
                                         {segIdx < rec.segmentos.length - 1 && (
-                                          <span className="text-slate-400">🚶 Transbordo</span>
+                                          <span className="text-slate-400">Transbordo</span>
                                         )}
                                       </div>
                                     )}
@@ -508,7 +508,6 @@ export default function MapPageNew() {
                               <div key={segIdx} className="bg-white/5 rounded-lg p-3 space-y-2">
                                 {/* Paso del bus */}
                                 <div className="flex items-start gap-2">
-                                  <span className="text-2xl">🚌</span>
                                   <div className="flex-1">
                                     <div className="font-bold text-sky-300 text-base">
                                       Bus {segIdx + 1}: Ruta {segmento.ruta?.numero_ruta}
@@ -530,7 +529,7 @@ export default function MapPageNew() {
                                     </div>
                                     {segIdx === 0 && rec.distanciaCaminataOrigenMetros && (
                                       <div className="text-xs text-slate-400">
-                                        📏 {Math.round(rec.distanciaCaminataOrigenMetros)}m de tu origen
+                                        {Math.round(rec.distanciaCaminataOrigenMetros)}m de tu origen
                                       </div>
                                     )}
                                   </div>
@@ -559,7 +558,7 @@ export default function MapPageNew() {
                                     </div>
                                     {segIdx === rec.segmentos.length - 1 && rec.distanciaCaminataDestinoMetros && (
                                       <div className="text-xs text-slate-400">
-                                        📏 {Math.round(rec.distanciaCaminataDestinoMetros)}m de tu destino
+                                        {Math.round(rec.distanciaCaminataDestinoMetros)}m de tu destino
                                       </div>
                                     )}
                                   </div>
@@ -567,17 +566,16 @@ export default function MapPageNew() {
                                 
                                 {/* Info del segmento */}
                                 <div className="flex gap-3 text-xs text-slate-400 ml-8">
-                                  <span>⏱️ {segmento.tiempoEstimadoMinutos || 15} min</span>
-                                  <span>💵 ${segmento.ruta?.tarifa || '0.25'}</span>
+                                  <span>{segmento.tiempoEstimadoMinutos || 15} min</span>
+                                  <span>${segmento.ruta?.tarifa || '0.25'}</span>
                                   {segmento.paradasIntermedias && (
-                                    <span>🚏 {segmento.paradasIntermedias.length} paradas</span>
+                                    <span>{segmento.paradasIntermedias.length} paradas</span>
                                   )}
                                 </div>
                                 
                                 {/* Indicador de transbordo */}
                                 {segIdx < rec.segmentos.length - 1 && (
                                   <div className="flex items-center gap-2 mt-2 ml-8 text-yellow-400 text-xs bg-yellow-500/10 rounded p-2 border border-yellow-500/30">
-                                    <span className="text-lg">🚶‍♀️</span>
                                     <span className="font-medium">Camina hasta la parada {segIdx + 2} para tomar el siguiente bus</span>
                                   </div>
                                 )}
@@ -587,8 +585,8 @@ export default function MapPageNew() {
                             {/* Resumen total */}
                             <div className="flex gap-3 text-xs text-slate-400 bg-white/5 rounded p-2">
                               <span className="font-medium">Total:</span>
-                              <span>🚏 {rec.numParadas || 0} paradas</span>
-                              <span>🚶 {Math.round((rec.distanciaCaminataOrigenMetros || 0) + (rec.distanciaCaminataDestinoMetros || 0))}m caminata</span>
+                              <span>{rec.numParadas || 0} paradas</span>
+                              <span>{Math.round((rec.distanciaCaminataOrigenMetros || 0) + (rec.distanciaCaminataDestinoMetros || 0))}m caminata</span>
                             </div>
                           </div>
                         ) : (
@@ -624,12 +622,12 @@ export default function MapPageNew() {
                           <div className="flex gap-2">
                                 {index === 0 && (
                                   <span className="inline-block bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-3 py-1 rounded-full">
-                                ⭐ Mejor Opción
+                                Mejor Opción
                                   </span>
                                 )}
                                 {rutaSeleccionada === index && (
                                   <span className="inline-block bg-green-500/20 text-green-300 text-xs font-semibold px-3 py-1 rounded-full">
-                                👁️ Visible
+                                Visible
                                   </span>
                                 )}
                               </div>
@@ -641,7 +639,7 @@ export default function MapPageNew() {
                                 : 'bg-sky-600 hover:bg-sky-700 text-white'
                             }`}
                           >
-                            {rutaSeleccionada === index ? '✓ Viendo' : '🗺️ Ver en Mapa'}
+                            {rutaSeleccionada === index ? 'Viendo' : 'Ver en Mapa'}
                                 </button>
                             </div>
                           </div>
