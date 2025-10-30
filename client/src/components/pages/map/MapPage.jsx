@@ -152,6 +152,9 @@ export default function MapPageNew() {
   const [paradas, setParadas] = useState([]);
   const [loading, setLoading] = useState(false);
   
+  // NUEVO: Estado para el modo de vista
+  const [modoVista, setModoVista] = useState('recomendar'); // 'recomendar', 'rutas', 'paradas'
+  
   const [origenInput, setOrigenInput] = useState('');
   const [destinoInput, setDestinoInput] = useState('');
   const [origenSeleccionado, setOrigenSeleccionado] = useState(null);
@@ -162,10 +165,15 @@ export default function MapPageNew() {
   
   const [resultados, setResultados] = useState(null);
   const [rutaSeleccionada, setRutaSeleccionada] = useState(0); // Controla qué ruta mostrar en el mapa
+  
+  // NUEVO: Estados para ver todas las rutas
+  const [todasLasRutas, setTodasLasRutas] = useState([]);
+  const [rutaBusqueda, setRutaBusqueda] = useState('');
 
-  // Cargar paradas al iniciar
+  // Cargar paradas y rutas al iniciar
   useEffect(() => {
     cargarParadas();
+    cargarTodasLasRutas();
   }, []);
 
   const cargarParadas = async () => {
@@ -185,6 +193,19 @@ export default function MapPageNew() {
       alert('Error al conectar con el servidor. Verifica que el backend esté corriendo en http://localhost:4000');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // NUEVO: Cargar todas las rutas
+  const cargarTodasLasRutas = async () => {
+    try {
+      const result = await routeService.getRutas();
+      if (result.success && result.data) {
+        console.log('Rutas cargadas:', result.data.length);
+        setTodasLasRutas(result.data);
+      }
+    } catch (error) {
+      console.error('Error al cargar rutas:', error);
     }
   };
 
@@ -256,26 +277,77 @@ export default function MapPageNew() {
     });
   };
 
-  const obtenerUbicacionActual = () => {
+  const obtenerUbicacionActual = async () => {
     if (!navigator.geolocation) {
       alert('Tu navegador no soporta geolocalización');
       return;
     }
 
+    setLoading(true);
+    
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const ubicacion = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          nombre: 'Mi ubicación actual'
-        };
-        setOrigenInput(ubicacion.nombre);
-        setOrigenSeleccionado(ubicacion);
-        console.log('Ubicación actual obtenida:', ubicacion);
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        console.log('📍 Ubicación GPS obtenida:', { lat, lng });
+        
+        try {
+          // NUEVO: Llamar al backend para buscar paradas cercanas
+          const result = await routeService.getParadasCercanas(lat, lng, 500);
+          
+          if (result.success && result.data && result.data.length > 0) {
+            console.log(`✅ Encontradas ${result.data.length} paradas cercanas`);
+            
+            // Seleccionar la parada más cercana automáticamente
+            const paradaMasCercana = result.data[0];
+            setOrigenInput(paradaMasCercana.nombre);
+            setOrigenSeleccionado({
+              id: paradaMasCercana.id,
+              nombre: paradaMasCercana.nombre,
+              lat: paradaMasCercana.latitud,
+              lng: paradaMasCercana.longitud
+            });
+            
+            // Mostrar sugerencias de paradas cercanas
+            setSugerenciasOrigen(result.data.slice(0, 5).map(p => ({
+              id: p.id,
+              nombre: p.nombre,
+              latitud: p.latitud,
+              longitud: p.longitud,
+              distancia: p.distancia
+            })));
+            
+            alert(`Parada más cercana: ${paradaMasCercana.nombre} (${Math.round(paradaMasCercana.distancia)}m)`);
+          } else {
+            // Si no hay paradas cercanas, usar coordenadas GPS directas
+            const ubicacion = {
+              lat: lat,
+              lng: lng,
+              nombre: 'Mi ubicación GPS'
+            };
+            setOrigenInput(ubicacion.nombre);
+            setOrigenSeleccionado(ubicacion);
+            alert('No se encontraron paradas cercanas. Usando tu ubicación GPS directa.');
+          }
+        } catch (error) {
+          console.error('❌ Error al buscar paradas cercanas:', error);
+          // Fallback: usar coordenadas GPS directas
+          const ubicacion = {
+            lat: lat,
+            lng: lng,
+            nombre: 'Mi ubicación GPS'
+          };
+          setOrigenInput(ubicacion.nombre);
+          setOrigenSeleccionado(ubicacion);
+        } finally {
+          setLoading(false);
+        }
       },
       (error) => {
         console.error('Error al obtener ubicación:', error);
-        alert('No se pudo obtener tu ubicación');
+        alert('No se pudo obtener tu ubicación. Por favor, permite el acceso a tu ubicación.');
+        setLoading(false);
       }
     );
   };
@@ -356,9 +428,45 @@ export default function MapPageNew() {
           </p>
         </div>
 
+        {/* NUEVO: Pestañas de navegación */}
+        <div className="mb-6 flex justify-center gap-2 flex-wrap">
+          <button
+            onClick={() => setModoVista('recomendar')}
+            className={`px-6 py-3 rounded-xl font-semibold transition ${
+              modoVista === 'recomendar'
+                ? 'bg-sky-500 text-white shadow-lg'
+                : 'bg-white/10 text-slate-300 hover:bg-white/20'
+            }`}
+          >
+            Recomendar Ruta
+          </button>
+          <button
+            onClick={() => setModoVista('rutas')}
+            className={`px-6 py-3 rounded-xl font-semibold transition ${
+              modoVista === 'rutas'
+                ? 'bg-sky-500 text-white shadow-lg'
+                : 'bg-white/10 text-slate-300 hover:bg-white/20'
+            }`}
+          >
+            Ver Rutas
+          </button>
+          <button
+            onClick={() => setModoVista('paradas')}
+            className={`px-6 py-3 rounded-xl font-semibold transition ${
+              modoVista === 'paradas'
+                ? 'bg-sky-500 text-white shadow-lg'
+                : 'bg-white/10 text-slate-300 hover:bg-white/20'
+            }`}
+          >
+            Ver Paradas
+          </button>
+        </div>
+
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Panel de búsqueda */}
           <div className="lg:col-span-1">
+            {/* MODO: Recomendar Ruta */}
+            {modoVista === 'recomendar' && (
             <div className="rounded-2xl bg-white/5 backdrop-blur-md shadow-[0_12px_40px_rgba(0,0,0,0.35)] p-6">
               <h2 className="mb-6 text-xl font-semibold">
                 Planifica tu Viaje
