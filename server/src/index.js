@@ -481,13 +481,14 @@ app.get("/api/rutas-cercanas", async (req, res) => {
     }
     
     // Buscar rutas que pasan por esas paradas
+    const placeholders = paradasCercanas.map(() => '?').join(',');
     const rutasResult = await pool.query(`
       SELECT DISTINCT r.id, r.numero_ruta, r.nombre, r.empresa, r.tipo, r.tarifa, r.color
       FROM rutas r
       JOIN parada_ruta pr ON r.id = pr.id_ruta
-      WHERE r.activa = 1 AND pr.id_parada IN (${paradasCercanas.join(',')})
-      LIMIT ${parseInt(limite)}
-    `);
+      WHERE r.activa = 1 AND pr.id_parada IN (${placeholders})
+      LIMIT ?
+    `, [...paradasCercanas, parseInt(limite)]);
     
     res.json({
       success: true,
@@ -509,7 +510,7 @@ app.get("/api/rutas-cercanas", async (req, res) => {
 
 // Recomendar ruta entre dos puntos (endpoint principal con transbordos)
 app.post("/api/recomendar-ruta", async (req, res) => {
-  const { inicioLat, inicioLng, destinoLat, destinoLng, radio = 500 } = req.body;
+  const { inicioLat, inicioLng, destinoLat, destinoLng, radio = 1000 } = req.body;
   
   if (!inicioLat || !inicioLng || !destinoLat || !destinoLng) {
     return res.status(400).json({ 
@@ -577,6 +578,22 @@ app.post("/api/recomendar-ruta", async (req, res) => {
     const idsOrigen = paradasOrigen.map(p => p.id);
     const idsDestino = paradasDestino.map(p => p.id);
     
+    if (idsOrigen.length === 0 || idsDestino.length === 0) {
+      return res.json({
+        exito: false,
+        mensaje: "No hay paradas cercanas suficientes",
+        origen: { lat: latInicio, lng: lngInicio },
+        destino: { lat: latDestino, lng: lngDestino },
+        paradasOrigen,
+        paradasDestino,
+        recomendaciones: []
+      });
+    }
+    
+    // Crear placeholders para la consulta
+    const origenPlaceholders = idsOrigen.map(() => '?').join(',');
+    const destinoPlaceholders = idsDestino.map(() => '?').join(',');
+    
     const rutasDirectas = await pool.query(`
       SELECT DISTINCT
         r.id, r.numero_ruta, r.nombre, r.empresa, r.tipo, r.tarifa, r.color,
@@ -598,12 +615,12 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       JOIN paradas p1 ON pr1.id_parada = p1.id
       JOIN paradas p2 ON pr2.id_parada = p2.id
       WHERE r.activa = 1
-        AND pr1.id_parada IN (${idsOrigen.join(',')})
-        AND pr2.id_parada IN (${idsDestino.join(',')})
+        AND pr1.id_parada IN (${origenPlaceholders})
+        AND pr2.id_parada IN (${destinoPlaceholders})
         AND pr1.orden < pr2.orden
       ORDER BY (pr2.tiempo_estimado_minutos - pr1.tiempo_estimado_minutos) ASC
       LIMIT 5
-    `);
+    `, [...idsOrigen, ...idsDestino]);
     
     // Procesar rutas directas
     const recomendaciones = [];
@@ -680,6 +697,8 @@ app.post("/api/recomendar-ruta", async (req, res) => {
     // 4. Buscar rutas con 1 transbordo (si hay pocas rutas directas)
     if (recomendaciones.length < 3) {
       console.log('🔍 Buscando rutas con transbordo...');
+      console.log(`   Paradas origen encontradas: ${paradasOrigen.length}`);
+      console.log(`   Paradas destino encontradas: ${paradasDestino.length}`);
       
       // Obtener rutas desde el origen
       const rutasDesdeOrigen = await pool.query(`
@@ -733,6 +752,10 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         rutasPorId[rutaId].paradas.sort((a, b) => a.orden - b.orden);
       }
       
+      console.log(`   Total rutas en el sistema: ${Object.keys(rutasPorId).length}`);
+      console.log(`   IDs paradas origen: ${idsOrigen.join(', ')}`);
+      console.log(`   IDs paradas destino: ${idsDestino.join(', ')}`);
+      
       const transbordos = [];
       
       // Buscar combinaciones de 2 rutas
@@ -741,6 +764,8 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         const ruta1Options = Object.values(rutasPorId).filter(r => 
           r.paradas.some(p => p.id === paradaOrigenId)
         );
+        
+        console.log(`   Parada origen ${paradaOrigenId}: ${ruta1Options.length} rutas disponibles`);
         
         for (const ruta1 of ruta1Options) {
           const indexOrigen = ruta1.paradas.findIndex(p => p.id === paradaOrigenId);
@@ -766,8 +791,13 @@ app.post("/api/recomendar-ruta", async (req, res) => {
                   const paradaOrigen = ruta1.paradas[indexOrigen];
                   const paradaDestino = ruta2.paradas[indexDestino];
                   
-                  const tiempo1 = paradaTransbordo.tiempo_estimado_minutos - paradaOrigen.tiempo_estimado_minutos;
-                  const tiempo2 = paradaDestino.tiempo_estimado_minutos - paradaTransbordo.tiempo_estimado_minutos;
+                  // Calcular tiempos, manejando casos null
+                  const tiempoOrigenMin = paradaOrigen.tiempo_estimado_minutos || 0;
+                  const tiempoTransbordoMin = paradaTransbordo.tiempo_estimado_minutos || (tiempoOrigenMin + 15);
+                  const tiempoDestinoMin = paradaDestino.tiempo_estimado_minutos || (tiempoTransbordoMin + 15);
+                  
+                  const tiempo1 = Math.max(tiempoTransbordoMin - tiempoOrigenMin, 5);
+                  const tiempo2 = Math.max(tiempoDestinoMin - tiempoTransbordoMin, 5);
                   const tiempoTotal = tiempo1 + tiempo2 + 5; // 5 min de espera
                   
                   const distanciaCaminataOrigen = calcularDistancia(
@@ -783,6 +813,8 @@ app.post("/api/recomendar-ruta", async (req, res) => {
                     latDestino,
                     lngDestino
                   );
+                  
+                  console.log(`   ✅ Transbordo encontrado: Ruta ${ruta1.numero_ruta} → Ruta ${ruta2.numero_ruta}`);
                   
                   transbordos.push({
                     tipo: 'transbordo',
