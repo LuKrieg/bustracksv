@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -149,11 +150,10 @@ function AutocompleteInput({ value, onChange, suggestions, onSelect, placeholder
 
 // Componente principal
 export default function MapPageNew() {
+  const navigate = useNavigate();
+  
   const [paradas, setParadas] = useState([]);
   const [loading, setLoading] = useState(false);
-  
-  // NUEVO: Estado para el modo de vista
-  const [modoVista, setModoVista] = useState('recomendar'); // 'recomendar', 'rutas', 'paradas'
   
   const [origenInput, setOrigenInput] = useState('');
   const [destinoInput, setDestinoInput] = useState('');
@@ -165,15 +165,10 @@ export default function MapPageNew() {
   
   const [resultados, setResultados] = useState(null);
   const [rutaSeleccionada, setRutaSeleccionada] = useState(0); // Controla qué ruta mostrar en el mapa
-  
-  // NUEVO: Estados para ver todas las rutas
-  const [todasLasRutas, setTodasLasRutas] = useState([]);
-  const [rutaBusqueda, setRutaBusqueda] = useState('');
 
-  // Cargar paradas y rutas al iniciar
+  // Cargar paradas al iniciar
   useEffect(() => {
     cargarParadas();
-    cargarTodasLasRutas();
   }, []);
 
   const cargarParadas = async () => {
@@ -193,19 +188,6 @@ export default function MapPageNew() {
       alert('Error al conectar con el servidor. Verifica que el backend esté corriendo en http://localhost:4000');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // NUEVO: Cargar todas las rutas
-  const cargarTodasLasRutas = async () => {
-    try {
-      const result = await routeService.getRutas();
-      if (result.success && result.data) {
-        console.log('Rutas cargadas:', result.data.length);
-        setTodasLasRutas(result.data);
-      }
-    } catch (error) {
-      console.error('Error al cargar rutas:', error);
     }
   };
 
@@ -417,6 +399,19 @@ export default function MapPageNew() {
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_50%_100%,#1b2250_0%,#0b0f24_60%,#060816_100%)] text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-8">
+        {/* Botón Volver */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 font-medium transition"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Volver
+          </button>
+        </div>
+        
         {/* Encabezado */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-extrabold leading-tight">
@@ -428,45 +423,9 @@ export default function MapPageNew() {
           </p>
         </div>
 
-        {/* NUEVO: Pestañas de navegación */}
-        <div className="mb-6 flex justify-center gap-2 flex-wrap">
-          <button
-            onClick={() => setModoVista('recomendar')}
-            className={`px-6 py-3 rounded-xl font-semibold transition ${
-              modoVista === 'recomendar'
-                ? 'bg-sky-500 text-white shadow-lg'
-                : 'bg-white/10 text-slate-300 hover:bg-white/20'
-            }`}
-          >
-            Recomendar Ruta
-          </button>
-          <button
-            onClick={() => setModoVista('rutas')}
-            className={`px-6 py-3 rounded-xl font-semibold transition ${
-              modoVista === 'rutas'
-                ? 'bg-sky-500 text-white shadow-lg'
-                : 'bg-white/10 text-slate-300 hover:bg-white/20'
-            }`}
-          >
-            Ver Rutas
-          </button>
-          <button
-            onClick={() => setModoVista('paradas')}
-            className={`px-6 py-3 rounded-xl font-semibold transition ${
-              modoVista === 'paradas'
-                ? 'bg-sky-500 text-white shadow-lg'
-                : 'bg-white/10 text-slate-300 hover:bg-white/20'
-            }`}
-          >
-            Ver Paradas
-          </button>
-        </div>
-
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Panel de búsqueda */}
           <div className="lg:col-span-1">
-            {/* MODO: Recomendar Ruta */}
-            {modoVista === 'recomendar' && (
             <div className="rounded-2xl bg-white/5 backdrop-blur-md shadow-[0_12px_40px_rgba(0,0,0,0.35)] p-6">
               <h2 className="mb-6 text-xl font-semibold">
                 Planifica tu Viaje
@@ -774,7 +733,6 @@ export default function MapPageNew() {
                 )}
               </div>
             </div>
-            )}
           </div>
 
           {/* Mapa */}
