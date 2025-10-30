@@ -11,6 +11,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
+    usuario: '',
     nombre_completo: '',
     email: '',
     telefono: '',
@@ -28,6 +29,7 @@ export default function ProfilePage() {
       if (result.success) {
         setProfile(result.data);
         setFormData({
+          usuario: result.data.usuario || '',
           nombre_completo: result.data.nombre_completo || '',
           email: result.data.email || '',
           telefono: result.data.telefono || '',
@@ -160,6 +162,21 @@ export default function ProfilePage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Nombre de Usuario
+                  </label>
+                  <input
+                    type="text"
+                    name="usuario"
+                    value={formData.usuario}
+                    onChange={handleInputChange}
+                    className="w-full h-11 px-4 rounded-xl border-2 border-white/20 bg-[#141a35] text-white placeholder-slate-400 focus:border-sky-400 focus:outline-none transition"
+                    placeholder="Tu nombre de usuario"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
                     Nombre Completo
                   </label>
                   <input
@@ -206,6 +223,7 @@ export default function ProfilePage() {
                     onClick={() => {
                       setEditing(false);
                       setFormData({
+                        usuario: profile?.usuario || '',
                         nombre_completo: profile?.nombre_completo || '',
                         email: profile?.email || '',
                         telefono: profile?.telefono || '',

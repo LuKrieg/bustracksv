@@ -178,9 +178,21 @@ app.get("/perfil", authenticateToken, async (req, res) => {
 
 // Actualizar perfil del usuario autenticado (SIMPLIFICADO)
 app.put("/perfil", authenticateToken, async (req, res) => {
-  const { nombre_completo, email, telefono } = req.body;
+  const { usuario, nombre_completo, email, telefono } = req.body;
   
   try {
+    // Validar que el usuario no esté en uso por otro usuario
+    if (usuario) {
+      const existingUsuario = await pool.query(
+        "SELECT id FROM usuarios WHERE usuario = $1 AND id != $2",
+        [usuario, req.user.id]
+      );
+      
+      if (existingUsuario.rows.length > 0) {
+        return res.status(409).json({ message: "El nombre de usuario ya está en uso" });
+      }
+    }
+    
     // Validar que el email no esté en uso por otro usuario
     if (email) {
       const existingUser = await pool.query(
@@ -197,6 +209,12 @@ app.put("/perfil", authenticateToken, async (req, res) => {
     const updates = [];
     const values = [];
     let paramCount = 1;
+    
+    if (usuario !== undefined) {
+      updates.push(`usuario = $${paramCount}`);
+      values.push(usuario);
+      paramCount++;
+    }
     
     if (nombre_completo !== undefined) {
       updates.push(`nombre_completo = $${paramCount}`);
