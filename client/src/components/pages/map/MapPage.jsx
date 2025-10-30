@@ -152,6 +152,9 @@ export default function MapPageNew() {
   const [paradas, setParadas] = useState([]);
   const [loading, setLoading] = useState(false);
   
+  // NUEVO: Estado para el modo de vista
+  const [modoVista, setModoVista] = useState('recomendar'); // 'recomendar', 'rutas', 'paradas'
+  
   const [origenInput, setOrigenInput] = useState('');
   const [destinoInput, setDestinoInput] = useState('');
   const [origenSeleccionado, setOrigenSeleccionado] = useState(null);
@@ -162,10 +165,15 @@ export default function MapPageNew() {
   
   const [resultados, setResultados] = useState(null);
   const [rutaSeleccionada, setRutaSeleccionada] = useState(0); // Controla qué ruta mostrar en el mapa
+  
+  // NUEVO: Estados para ver todas las rutas
+  const [todasLasRutas, setTodasLasRutas] = useState([]);
+  const [rutaBusqueda, setRutaBusqueda] = useState('');
 
-  // Cargar paradas al iniciar
+  // Cargar paradas y rutas al iniciar
   useEffect(() => {
     cargarParadas();
+    cargarTodasLasRutas();
   }, []);
 
   const cargarParadas = async () => {
@@ -185,6 +193,19 @@ export default function MapPageNew() {
       alert('Error al conectar con el servidor. Verifica que el backend esté corriendo en http://localhost:4000');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // NUEVO: Cargar todas las rutas
+  const cargarTodasLasRutas = async () => {
+    try {
+      const result = await routeService.getRutas();
+      if (result.success && result.data) {
+        console.log('Rutas cargadas:', result.data.length);
+        setTodasLasRutas(result.data);
+      }
+    } catch (error) {
+      console.error('Error al cargar rutas:', error);
     }
   };
 
@@ -256,26 +277,77 @@ export default function MapPageNew() {
     });
   };
 
-  const obtenerUbicacionActual = () => {
+  const obtenerUbicacionActual = async () => {
     if (!navigator.geolocation) {
       alert('Tu navegador no soporta geolocalización');
       return;
     }
 
+    setLoading(true);
+    
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const ubicacion = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          nombre: 'Mi ubicación actual'
-        };
-        setOrigenInput(ubicacion.nombre);
-        setOrigenSeleccionado(ubicacion);
-        console.log('Ubicación actual obtenida:', ubicacion);
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        console.log('📍 Ubicación GPS obtenida:', { lat, lng });
+        
+        try {
+          // NUEVO: Llamar al backend para buscar paradas cercanas
+          const result = await routeService.getParadasCercanas(lat, lng, 500);
+          
+          if (result.success && result.data && result.data.length > 0) {
+            console.log(`✅ Encontradas ${result.data.length} paradas cercanas`);
+            
+            // Seleccionar la parada más cercana automáticamente
+            const paradaMasCercana = result.data[0];
+            setOrigenInput(paradaMasCercana.nombre);
+            setOrigenSeleccionado({
+              id: paradaMasCercana.id,
+              nombre: paradaMasCercana.nombre,
+              lat: paradaMasCercana.latitud,
+              lng: paradaMasCercana.longitud
+            });
+            
+            // Mostrar sugerencias de paradas cercanas
+            setSugerenciasOrigen(result.data.slice(0, 5).map(p => ({
+              id: p.id,
+              nombre: p.nombre,
+              latitud: p.latitud,
+              longitud: p.longitud,
+              distancia: p.distancia
+            })));
+            
+            alert(`Parada más cercana: ${paradaMasCercana.nombre} (${Math.round(paradaMasCercana.distancia)}m)`);
+          } else {
+            // Si no hay paradas cercanas, usar coordenadas GPS directas
+            const ubicacion = {
+              lat: lat,
+              lng: lng,
+              nombre: 'Mi ubicación GPS'
+            };
+            setOrigenInput(ubicacion.nombre);
+            setOrigenSeleccionado(ubicacion);
+            alert('No se encontraron paradas cercanas. Usando tu ubicación GPS directa.');
+          }
+        } catch (error) {
+          console.error('❌ Error al buscar paradas cercanas:', error);
+          // Fallback: usar coordenadas GPS directas
+          const ubicacion = {
+            lat: lat,
+            lng: lng,
+            nombre: 'Mi ubicación GPS'
+          };
+          setOrigenInput(ubicacion.nombre);
+          setOrigenSeleccionado(ubicacion);
+        } finally {
+          setLoading(false);
+        }
       },
       (error) => {
         console.error('Error al obtener ubicación:', error);
-        alert('No se pudo obtener tu ubicación');
+        alert('No se pudo obtener tu ubicación. Por favor, permite el acceso a tu ubicación.');
+        setLoading(false);
       }
     );
   };
@@ -356,9 +428,45 @@ export default function MapPageNew() {
           </p>
         </div>
 
+        {/* NUEVO: Pestañas de navegación */}
+        <div className="mb-6 flex justify-center gap-2 flex-wrap">
+          <button
+            onClick={() => setModoVista('recomendar')}
+            className={`px-6 py-3 rounded-xl font-semibold transition ${
+              modoVista === 'recomendar'
+                ? 'bg-sky-500 text-white shadow-lg'
+                : 'bg-white/10 text-slate-300 hover:bg-white/20'
+            }`}
+          >
+            Recomendar Ruta
+          </button>
+          <button
+            onClick={() => setModoVista('rutas')}
+            className={`px-6 py-3 rounded-xl font-semibold transition ${
+              modoVista === 'rutas'
+                ? 'bg-sky-500 text-white shadow-lg'
+                : 'bg-white/10 text-slate-300 hover:bg-white/20'
+            }`}
+          >
+            Ver Rutas
+          </button>
+          <button
+            onClick={() => setModoVista('paradas')}
+            className={`px-6 py-3 rounded-xl font-semibold transition ${
+              modoVista === 'paradas'
+                ? 'bg-sky-500 text-white shadow-lg'
+                : 'bg-white/10 text-slate-300 hover:bg-white/20'
+            }`}
+          >
+            Ver Paradas
+          </button>
+        </div>
+
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Panel de búsqueda */}
           <div className="lg:col-span-1">
+            {/* MODO: Recomendar Ruta */}
+            {modoVista === 'recomendar' && (
             <div className="rounded-2xl bg-white/5 backdrop-blur-md shadow-[0_12px_40px_rgba(0,0,0,0.35)] p-6">
               <h2 className="mb-6 text-xl font-semibold">
                 Planifica tu Viaje
@@ -460,7 +568,7 @@ export default function MapPageNew() {
                             {/* Numeración de paradas principal */}
                             <div className="bg-gradient-to-r from-sky-500/20 to-purple-500/20 rounded-lg p-3 mb-3">
                               <div className="text-xs font-semibold text-sky-300 mb-2">
-                                📍 Tu viaje en {rec.segmentos.length} buses ({rec.transbordos} transbordo{rec.transbordos > 1 ? 's' : ''}):
+                                Tu viaje en {rec.segmentos.length} buses ({rec.transbordos} transbordo{rec.transbordos > 1 ? 's' : ''}):
                               </div>
                               <div className="space-y-1">
                                 {rec.segmentos.map((segmento, segIdx) => (
@@ -479,22 +587,14 @@ export default function MapPageNew() {
                                     {/* Parada de bajada (solo si es la última o hay transbordo) */}
                                     {(segIdx === rec.segmentos.length - 1 || segIdx < rec.segmentos.length - 1) && (
                                       <div className="flex items-center gap-2 text-xs mt-1">
-                                        <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold ${
-                                          segIdx === rec.segmentos.length - 1 
-                                            ? 'bg-red-500 text-white' 
-                                            : 'bg-yellow-500 text-black'
-                                        }`}>
+                                        <div className="flex items-center justify-center w-6 h-6 rounded-full font-bold bg-red-500 text-white">
                                           {segIdx + 2}
                                         </div>
-                                        <span className={`font-medium ${
-                                          segIdx === rec.segmentos.length - 1 
-                                            ? 'text-red-300' 
-                                            : 'text-yellow-300'
-                                        }`}>
+                                        <span className="font-medium text-red-300">
                                           {segmento.paradaDestino?.nombre}
                                         </span>
                                         {segIdx < rec.segmentos.length - 1 && (
-                                          <span className="text-slate-400">🚶 Transbordo</span>
+                                          <span className="text-slate-400">Transbordo</span>
                                         )}
                                       </div>
                                     )}
@@ -508,7 +608,6 @@ export default function MapPageNew() {
                               <div key={segIdx} className="bg-white/5 rounded-lg p-3 space-y-2">
                                 {/* Paso del bus */}
                                 <div className="flex items-start gap-2">
-                                  <span className="text-2xl">🚌</span>
                                   <div className="flex-1">
                                     <div className="font-bold text-sky-300 text-base">
                                       Bus {segIdx + 1}: Ruta {segmento.ruta?.numero_ruta}
@@ -528,58 +627,57 @@ export default function MapPageNew() {
                                     <div className="font-medium text-green-300 text-xs">
                                       Sube en: {segmento.paradaOrigen?.nombre}
                                     </div>
-                                    {segIdx === 0 && rec.distanciaCaminataOrigenMetros && (
+                                    {segIdx === 0 && rec.distanciaCaminataOrigenMetros > 0 && (
                                       <div className="text-xs text-slate-400">
-                                        📏 {Math.round(rec.distanciaCaminataOrigenMetros)}m de tu origen
+                                        {Math.round(rec.distanciaCaminataOrigenMetros)}m de tu origen
                                       </div>
                                     )}
                                   </div>
                                 </div>
                                 
                                 {/* Información de bajada */}
-                                <div className={`flex items-start gap-2 rounded p-2 ml-8 ${
-                                  segIdx === rec.segmentos.length - 1 
-                                    ? 'bg-red-600/20' 
-                                    : 'bg-yellow-600/20'
-                                }`}>
-                                  <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold flex-shrink-0 ${
-                                    segIdx === rec.segmentos.length - 1 
-                                      ? 'bg-red-500 text-white' 
-                                      : 'bg-yellow-500 text-black'
-                                  }`}>
+                                <div className="flex items-start gap-2 rounded p-2 ml-8 bg-red-600/20">
+                                  <div className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold flex-shrink-0 bg-red-500 text-white">
                                     {segIdx + 2}
                                   </div>
                                   <div className="flex-1">
-                                    <div className={`font-medium text-xs ${
-                                      segIdx === rec.segmentos.length - 1 
-                                        ? 'text-red-300' 
-                                        : 'text-yellow-300'
-                                    }`}>
+                                    <div className="font-medium text-xs text-red-300">
                                       Baja en: {segmento.paradaDestino?.nombre}
                                     </div>
-                                    {segIdx === rec.segmentos.length - 1 && rec.distanciaCaminataDestinoMetros && (
+                                    {segIdx === rec.segmentos.length - 1 && rec.distanciaCaminataDestinoMetros > 0 && (
                                       <div className="text-xs text-slate-400">
-                                        📏 {Math.round(rec.distanciaCaminataDestinoMetros)}m de tu destino
+                                        {Math.round(rec.distanciaCaminataDestinoMetros)}m de tu destino
                                       </div>
                                     )}
                                   </div>
                                 </div>
                                 
-                                {/* Info del segmento */}
-                                <div className="flex gap-3 text-xs text-slate-400 ml-8">
-                                  <span>⏱️ {segmento.tiempoEstimadoMinutos || 15} min</span>
-                                  <span>💵 ${segmento.ruta?.tarifa || '0.25'}</span>
-                                  {segmento.paradasIntermedias && (
-                                    <span>🚏 {segmento.paradasIntermedias.length} paradas</span>
-                                  )}
-                                </div>
+                                {/* Info del segmento para el último bus */}
+                                {segIdx === rec.segmentos.length - 1 && (
+                                  <div className="flex gap-3 text-xs text-slate-400 ml-8 mt-2">
+                                    <span>{segmento.tiempoEstimadoMinutos || 15} min</span>
+                                    <span>${segmento.ruta?.tarifa || '0.25'}</span>
+                                    {segmento.paradasIntermedias && (
+                                      <span>{segmento.paradasIntermedias.length} paradas</span>
+                                    )}
+                                  </div>
+                                )}
                                 
                                 {/* Indicador de transbordo */}
                                 {segIdx < rec.segmentos.length - 1 && (
-                                  <div className="flex items-center gap-2 mt-2 ml-8 text-yellow-400 text-xs bg-yellow-500/10 rounded p-2 border border-yellow-500/30">
-                                    <span className="text-lg">🚶‍♀️</span>
-                                    <span className="font-medium">Camina hasta la parada {segIdx + 2} para tomar el siguiente bus</span>
-                                  </div>
+                                  <>
+                                    <div className="mt-2 ml-8 text-yellow-400 text-xs bg-yellow-500/10 rounded p-2 border border-yellow-500/30">
+                                      <div className="font-medium">Camina hasta la parada {segIdx + 2} para tomar el siguiente bus</div>
+                                    </div>
+                                    {/* Info del segmento - FUERA del cuadro amarillo */}
+                                    <div className="flex gap-3 text-xs text-slate-400 ml-8 mt-2">
+                                      <span>{segmento.tiempoEstimadoMinutos || 15} min</span>
+                                      <span>${segmento.ruta?.tarifa || '0.25'}</span>
+                                      {segmento.paradasIntermedias && (
+                                        <span>{segmento.paradasIntermedias.length} paradas</span>
+                                      )}
+                                    </div>
+                                  </>
                                 )}
                               </div>
                             ))}
@@ -587,8 +685,8 @@ export default function MapPageNew() {
                             {/* Resumen total */}
                             <div className="flex gap-3 text-xs text-slate-400 bg-white/5 rounded p-2">
                               <span className="font-medium">Total:</span>
-                              <span>🚏 {rec.numParadas || 0} paradas</span>
-                              <span>🚶 {Math.round((rec.distanciaCaminataOrigenMetros || 0) + (rec.distanciaCaminataDestinoMetros || 0))}m caminata</span>
+                              <span>{rec.numParadas || 0} paradas</span>
+                              <span>{Math.round((rec.distanciaCaminataOrigenMetros || 0) + (rec.distanciaCaminataDestinoMetros || 0))}m caminata</span>
                             </div>
                           </div>
                         ) : (
@@ -624,12 +722,12 @@ export default function MapPageNew() {
                           <div className="flex gap-2">
                                 {index === 0 && (
                                   <span className="inline-block bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-3 py-1 rounded-full">
-                                ⭐ Mejor Opción
+                                Mejor Opción
                                   </span>
                                 )}
                                 {rutaSeleccionada === index && (
                                   <span className="inline-block bg-green-500/20 text-green-300 text-xs font-semibold px-3 py-1 rounded-full">
-                                👁️ Visible
+                                Visible
                                   </span>
                                 )}
                               </div>
@@ -641,7 +739,7 @@ export default function MapPageNew() {
                                 : 'bg-sky-600 hover:bg-sky-700 text-white'
                             }`}
                           >
-                            {rutaSeleccionada === index ? '✓ Viendo' : '🗺️ Ver en Mapa'}
+                            {rutaSeleccionada === index ? 'Viendo' : 'Ver en Mapa'}
                                 </button>
                             </div>
                           </div>
@@ -676,6 +774,7 @@ export default function MapPageNew() {
                 )}
               </div>
             </div>
+            )}
           </div>
 
           {/* Mapa */}

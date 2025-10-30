@@ -510,7 +510,7 @@ app.get("/api/rutas-cercanas", async (req, res) => {
 
 // Recomendar ruta entre dos puntos (endpoint principal con transbordos)
 app.post("/api/recomendar-ruta", async (req, res) => {
-  const { inicioLat, inicioLng, destinoLat, destinoLng, radio = 1000 } = req.body;
+  const { inicioLat, inicioLng, destinoLat, destinoLng, radio = 1500 } = req.body; // Radio aumentado a 1.5km
   
   if (!inicioLat || !inicioLng || !destinoLat || !destinoLng) {
     return res.status(400).json({ 
@@ -563,13 +563,42 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       .slice(0, 10);
     
     if (paradasOrigen.length === 0 || paradasDestino.length === 0) {
+      // Sugerir paradas hub más cercanas
+      const paradasHub = await pool.query(`
+        SELECT p.*, COUNT(DISTINCT pr.id_ruta) as num_rutas,
+               CASE p.tipo
+                 WHEN 'Terminal' THEN 5
+                 WHEN 'TransferHub' THEN 4
+                 ELSE 1
+               END as prioridad
+        FROM paradas p
+        LEFT JOIN parada_ruta pr ON p.id = pr.id_parada
+        WHERE p.activa = 1
+        GROUP BY p.id
+        HAVING num_rutas >= 3
+        ORDER BY prioridad DESC, num_rutas DESC
+        LIMIT 5
+      `);
+      
+      const sugerenciasOrigen = paradasHub.rows.map(p => ({
+        ...p,
+        distancia: calcularDistancia(latInicio, lngInicio, parseFloat(p.latitud), parseFloat(p.longitud))
+      })).sort((a, b) => a.distancia - b.distancia).slice(0, 3);
+      
+      const sugerenciasDestino = paradasHub.rows.map(p => ({
+        ...p,
+        distancia: calcularDistancia(latDestino, lngDestino, parseFloat(p.latitud), parseFloat(p.longitud))
+      })).sort((a, b) => a.distancia - b.distancia).slice(0, 3);
+      
       return res.json({
         exito: false,
-        mensaje: "No se encontraron paradas cercanas",
+        mensaje: "No se encontraron paradas cercanas. Intenta con estas paradas populares:",
         origen: { lat: latInicio, lng: lngInicio },
         destino: { lat: latDestino, lng: lngDestino },
         paradasOrigen,
         paradasDestino,
+        sugerenciasOrigen,
+        sugerenciasDestino,
         recomendaciones: []
       });
     }
@@ -694,9 +723,9 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       });
     }
     
-    // 4. Buscar rutas con 1 transbordo (si hay pocas rutas directas)
-    if (recomendaciones.length < 3) {
-      console.log('🔍 Buscando rutas con transbordo...');
+    // 4. Buscar rutas con 1 transbordo (SIEMPRE buscar opciones)
+    if (recomendaciones.length < 15) {
+      console.log('🔍 Buscando rutas con 1 transbordo...');
       console.log(`   Paradas origen encontradas: ${paradasOrigen.length}`);
       console.log(`   Paradas destino encontradas: ${paradasDestino.length}`);
       
@@ -894,15 +923,15 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         }
       }
       
-      // Ordenar por tiempo y tomar las mejores 5
+      // Ordenar por tiempo y tomar las mejores 10
       transbordos.sort((a, b) => a.tiempoEstimadoMinutos - b.tiempoEstimadoMinutos);
-      recomendaciones.push(...transbordos.slice(0, 5));
+      recomendaciones.push(...transbordos.slice(0, 10));
       
       console.log(`✅ Encontradas ${transbordos.length} rutas con 1 transbordo`);
     }
     
-    // 5. Buscar rutas con 2 transbordos (3 buses) si aún hay pocas opciones
-    if (recomendaciones.length < 2) {
+    // 5. Buscar rutas con 2 transbordos (3 buses) - SIEMPRE buscar más opciones
+    if (recomendaciones.length < 10) {
       console.log('🔍 Buscando rutas con 2 transbordos (3 buses)...');
       
       const transbordos2 = [];
@@ -961,12 +990,12 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       
       // Buscar combinaciones de 3 rutas (limitado para evitar explosión combinatoria)
       let combinacionesProbadas = 0;
-      const maxCombinaciones = 1000; // Límite para evitar timeout
+      const maxCombinaciones = 5000; // Límite aumentado para más opciones
       
-      for (const paradaOrigenId of idsOrigen.slice(0, 5)) { // Limitar paradas de origen
+      for (const paradaOrigenId of idsOrigen.slice(0, 10)) { // Más paradas de origen
         const ruta1Options = Object.values(rutasPorId).filter(r => 
           r.paradas.some(p => p.id === paradaOrigenId)
-        ).slice(0, 3); // Solo las primeras 3 rutas
+        ).slice(0, 5); // Más rutas por parada
         
         for (const ruta1 of ruta1Options) {
           const indexOrigen = ruta1.paradas.findIndex(p => p.id === paradaOrigenId);
@@ -1076,18 +1105,72 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         if (combinacionesProbadas > maxCombinaciones) break;
       }
       
-      // Ordenar por tiempo y tomar las mejores 3
+      // Ordenar por tiempo y tomar las mejores 5
       transbordos2.sort((a, b) => a.tiempoEstimadoMinutos - b.tiempoEstimadoMinutos);
-      recomendaciones.push(...transbordos2.slice(0, 3));
+      recomendaciones.push(...transbordos2.slice(0, 5));
       
       console.log(`✅ Encontradas ${transbordos2.length} rutas con 2 transbordos (probadas ${combinacionesProbadas} combinaciones)`);
     }
     
-    // Ordenar todas las recomendaciones por tiempo
-    recomendaciones.sort((a, b) => a.tiempoEstimadoMinutos - b.tiempoEstimadoMinutos);
+    // Ordenar todas las recomendaciones: primero por número de transbordos, luego por tiempo
+    recomendaciones.sort((a, b) => {
+      if (a.transbordos !== b.transbordos) {
+        return a.transbordos - b.transbordos; // Menos transbordos primero
+      }
+      return a.tiempoEstimadoMinutos - b.tiempoEstimadoMinutos; // Luego por tiempo
+    });
     
     const rutasDirectasCount = recomendaciones.filter(r => r.tipo === 'directa').length;
     const rutasTransbordoCount = recomendaciones.filter(r => r.tipo === 'transbordo').length;
+    
+    // Si no se encontraron rutas, sugerir paradas hub cercanas
+    if (recomendaciones.length === 0) {
+      const paradasHub = await pool.query(`
+        SELECT p.*, COUNT(DISTINCT pr.id_ruta) as num_rutas,
+               CASE p.tipo
+                 WHEN 'Terminal' THEN 5
+                 WHEN 'TransferHub' THEN 4
+                 ELSE 1
+               END as prioridad
+        FROM paradas p
+        LEFT JOIN parada_ruta pr ON p.id = pr.id_parada
+        WHERE p.activa = 1
+        GROUP BY p.id
+        HAVING num_rutas >= 2
+        ORDER BY prioridad DESC, num_rutas DESC
+        LIMIT 10
+      `);
+      
+      const sugerenciasOrigen = paradasHub.rows.map(p => ({
+        ...p,
+        distancia: calcularDistancia(latInicio, lngInicio, parseFloat(p.latitud), parseFloat(p.longitud))
+      })).sort((a, b) => a.distancia - b.distancia).slice(0, 5);
+      
+      const sugerenciasDestino = paradasHub.rows.map(p => ({
+        ...p,
+        distancia: calcularDistancia(latDestino, lngDestino, parseFloat(p.latitud), parseFloat(p.longitud))
+      })).sort((a, b) => a.distancia - b.distancia).slice(0, 5);
+      
+      return res.json({
+        exito: false,
+        mensaje: "No se encontraron rutas disponibles. Prueba con estas paradas cercanas con más conexiones:",
+        origen: { lat: latInicio, lng: lngInicio },
+        destino: { lat: latDestino, lng: lngDestino },
+        paradasOrigen: paradasOrigen.map(p => ({ ...p, distancia_metros: Math.round(p.distancia) })),
+        paradasDestino: paradasDestino.map(p => ({ ...p, distancia_metros: Math.round(p.distancia) })),
+        sugerenciasOrigen: sugerenciasOrigen.map(p => ({ 
+          ...p, 
+          distancia_metros: Math.round(p.distancia),
+          distancia_km: (p.distancia / 1000).toFixed(2)
+        })),
+        sugerenciasDestino: sugerenciasDestino.map(p => ({ 
+          ...p, 
+          distancia_metros: Math.round(p.distancia),
+          distancia_km: (p.distancia / 1000).toFixed(2)
+        })),
+        recomendaciones: []
+      });
+    }
     
     res.json({
       exito: true,
@@ -1096,7 +1179,7 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       destino: { lat: latDestino, lng: lngDestino },
       paradasOrigen: paradasOrigen.map(p => ({ ...p, distancia_metros: Math.round(p.distancia) })),
       paradasDestino: paradasDestino.map(p => ({ ...p, distancia_metros: Math.round(p.distancia) })),
-      recomendaciones,
+      recomendaciones: recomendaciones.slice(0, 15), // Hasta 15 opciones (antes 10)
       estadisticas: {
         total_opciones: recomendaciones.length,
         rutas_directas: rutasDirectasCount,
