@@ -161,7 +161,7 @@ app.get("/validate", authenticateToken, async (req, res) => {
 app.get("/perfil", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, usuario, email, nombre_completo, telefono, fecha_creacion, ultimo_acceso FROM usuarios WHERE id = $1",
+      "SELECT id, usuario, email, nombre_completo, telefono, foto_perfil, fecha_creacion, ultimo_acceso FROM usuarios WHERE id = $1",
       [req.user.id]
     );
     
@@ -178,7 +178,7 @@ app.get("/perfil", authenticateToken, async (req, res) => {
 
 // Actualizar perfil del usuario autenticado (SIMPLIFICADO)
 app.put("/perfil", authenticateToken, async (req, res) => {
-  const { usuario, nombre_completo, email, telefono } = req.body;
+  const { usuario, nombre_completo, email, telefono, foto_perfil } = req.body;
   
   try {
     // Validar que el usuario no esté en uso por otro usuario
@@ -231,6 +231,12 @@ app.put("/perfil", authenticateToken, async (req, res) => {
     if (telefono !== undefined) {
       updates.push(`telefono = $${paramCount}`);
       values.push(telefono);
+      paramCount++;
+    }
+    
+    if (foto_perfil !== undefined) {
+      updates.push(`foto_perfil = $${paramCount}`);
+      values.push(foto_perfil);
       paramCount++;
     }
     

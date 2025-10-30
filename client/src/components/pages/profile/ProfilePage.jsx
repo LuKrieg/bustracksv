@@ -31,6 +31,10 @@ export default function ProfilePage() {
     confirmar: false,
   });
 
+  // Estados para foto de perfil
+  const [fotoPerfil, setFotoPerfil] = useState(null);
+  const [previsualizacionFoto, setPrevisualizacionFoto] = useState(null);
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -47,6 +51,11 @@ export default function ProfilePage() {
           email: result.data.email || '',
           telefono: result.data.telefono || '',
         });
+        // Cargar foto de perfil si existe
+        if (result.data.foto_perfil) {
+          setFotoPerfil(result.data.foto_perfil);
+          setPrevisualizacionFoto(result.data.foto_perfil);
+        }
       } else {
         setMessage({ type: 'error', text: 'Error al cargar perfil' });
       }
@@ -62,24 +71,71 @@ export default function ProfilePage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Manejar cambio de foto de perfil
+  const handleFotoChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Por favor selecciona una imagen válida' });
+      return;
+    }
+
+    // Validar tamaño (máximo 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'La imagen no debe superar 2MB' });
+      return;
+    }
+
+    try {
+      // Convertir a base64
+      const base64 = await perfilService.convertirImagenABase64(file);
+      setFotoPerfil(base64);
+      setPrevisualizacionFoto(base64);
+    } catch (error) {
+      console.error('Error al procesar imagen:', error);
+      setMessage({ type: 'error', text: 'Error al procesar la imagen' });
+    }
+  };
+
+  // Eliminar foto de perfil
+  const handleEliminarFoto = () => {
+    setFotoPerfil(null);
+    setPrevisualizacionFoto(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ type: '', text: '' });
 
     try {
-      const result = await perfilService.updatePerfil(formData);
+      // Incluir foto de perfil si cambió
+      const dataToUpdate = { ...formData };
+      if (fotoPerfil !== profile?.foto_perfil) {
+        dataToUpdate.foto_perfil = fotoPerfil;
+      }
+
+      const result = await perfilService.updatePerfil(dataToUpdate);
       if (result.success) {
         setMessage({ type: 'success', text: '¡Perfil actualizado exitosamente!' });
         const updatedProfile = result.data.usuario;
         setProfile(updatedProfile);
         
-        // NUEVO: Actualizar el usuario en el contexto para que se refleje en el header
+        // Actualizar foto de perfil guardada
+        if (updatedProfile.foto_perfil) {
+          setFotoPerfil(updatedProfile.foto_perfil);
+          setPrevisualizacionFoto(updatedProfile.foto_perfil);
+        }
+        
+        // Actualizar el usuario en el contexto para que se refleje en el header
         updateUser({
           ...user,
           usuario: updatedProfile.usuario,
           nombre_completo: updatedProfile.nombre_completo,
           email: updatedProfile.email,
+          foto_perfil: updatedProfile.foto_perfil,
         });
         
         setEditing(false);
@@ -196,6 +252,55 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {/* Sección de Foto de Perfil */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative group">
+              <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-sky-500 to-purple-500 flex items-center justify-center border-4 border-white/20 shadow-xl">
+                {previsualizacionFoto ? (
+                  <img 
+                    src={previsualizacionFoto} 
+                    alt="Foto de perfil" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-5xl font-bold text-white">
+                    {profile?.usuario?.charAt(0).toUpperCase() || '?'}
+                  </span>
+                )}
+              </div>
+              
+              {/* Botón para cambiar foto */}
+              <label 
+                htmlFor="foto-input" 
+                className="absolute bottom-0 right-0 w-10 h-10 bg-sky-600 hover:bg-sky-700 rounded-full flex items-center justify-center cursor-pointer shadow-lg transition group"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                <input
+                  id="foto-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFotoChange}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Botón para eliminar foto */}
+              {previsualizacionFoto && (
+                <button
+                  onClick={handleEliminarFoto}
+                  className="absolute top-0 right-0 w-8 h-8 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center shadow-lg transition"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-3">Máximo 2MB • JPG, PNG, GIF</p>
+          </div>
+
           <div className="bg-gradient-to-br from-sky-600/20 to-purple-600/20 rounded-2xl p-6 border-2 border-sky-500/30">
             {!editing ? (
               // Vista de lectura
@@ -306,6 +411,14 @@ export default function ProfilePage() {
                         email: profile?.email || '',
                         telefono: profile?.telefono || '',
                       });
+                      // Restaurar foto original
+                      if (profile?.foto_perfil) {
+                        setFotoPerfil(profile.foto_perfil);
+                        setPrevisualizacionFoto(profile.foto_perfil);
+                      } else {
+                        setFotoPerfil(null);
+                        setPrevisualizacionFoto(null);
+                      }
                     }}
                     className="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl transition"
                     disabled={loading}
