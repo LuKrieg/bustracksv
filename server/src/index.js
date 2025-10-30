@@ -694,9 +694,9 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       });
     }
     
-    // 4. Buscar rutas con 1 transbordo (si hay pocas rutas directas)
-    if (recomendaciones.length < 3) {
-      console.log('🔍 Buscando rutas con transbordo...');
+    // 4. Buscar rutas con 1 transbordo (SIEMPRE buscar opciones)
+    if (recomendaciones.length < 10) {
+      console.log('🔍 Buscando rutas con 1 transbordo...');
       console.log(`   Paradas origen encontradas: ${paradasOrigen.length}`);
       console.log(`   Paradas destino encontradas: ${paradasDestino.length}`);
       
@@ -901,8 +901,8 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       console.log(`✅ Encontradas ${transbordos.length} rutas con 1 transbordo`);
     }
     
-    // 5. Buscar rutas con 2 transbordos (3 buses) si aún hay pocas opciones
-    if (recomendaciones.length < 2) {
+    // 5. Buscar rutas con 2 transbordos (3 buses) - SIEMPRE buscar más opciones
+    if (recomendaciones.length < 5) {
       console.log('🔍 Buscando rutas con 2 transbordos (3 buses)...');
       
       const transbordos2 = [];
@@ -961,12 +961,12 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       
       // Buscar combinaciones de 3 rutas (limitado para evitar explosión combinatoria)
       let combinacionesProbadas = 0;
-      const maxCombinaciones = 1000; // Límite para evitar timeout
+      const maxCombinaciones = 5000; // Límite aumentado para más opciones
       
-      for (const paradaOrigenId of idsOrigen.slice(0, 5)) { // Limitar paradas de origen
+      for (const paradaOrigenId of idsOrigen.slice(0, 10)) { // Más paradas de origen
         const ruta1Options = Object.values(rutasPorId).filter(r => 
           r.paradas.some(p => p.id === paradaOrigenId)
-        ).slice(0, 3); // Solo las primeras 3 rutas
+        ).slice(0, 5); // Más rutas por parada
         
         for (const ruta1 of ruta1Options) {
           const indexOrigen = ruta1.paradas.findIndex(p => p.id === paradaOrigenId);
