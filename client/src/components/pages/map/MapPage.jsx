@@ -519,7 +519,7 @@ export default function MapPageNew() {
                                     <div className="font-medium text-green-300 text-xs">
                                       Sube en: {segmento.paradaOrigen?.nombre}
                                     </div>
-                                    {segIdx === 0 && rec.distanciaCaminataOrigenMetros && (
+                                    {segIdx === 0 && rec.distanciaCaminataOrigenMetros > 0 && (
                                       <div className="text-xs text-slate-400">
                                         {Math.round(rec.distanciaCaminataOrigenMetros)}m de tu origen
                                       </div>
@@ -536,7 +536,7 @@ export default function MapPageNew() {
                                     <div className="font-medium text-xs text-red-300">
                                       Baja en: {segmento.paradaDestino?.nombre}
                                     </div>
-                                    {segIdx === rec.segmentos.length - 1 && rec.distanciaCaminataDestinoMetros && (
+                                    {segIdx === rec.segmentos.length - 1 && rec.distanciaCaminataDestinoMetros > 0 && (
                                       <div className="text-xs text-slate-400">
                                         {Math.round(rec.distanciaCaminataDestinoMetros)}m de tu destino
                                       </div>
@@ -557,17 +557,19 @@ export default function MapPageNew() {
                                 
                                 {/* Indicador de transbordo */}
                                 {segIdx < rec.segmentos.length - 1 && (
-                                  <div className="mt-2 ml-8 text-yellow-400 text-xs bg-yellow-500/10 rounded p-2 border border-yellow-500/30">
-                                    <div className="font-medium">Camina hasta la parada {segIdx + 2} para tomar el siguiente bus</div>
-                                    {/* Info del segmento */}
-                                    <div className="flex gap-3 text-slate-400 mt-2">
+                                  <>
+                                    <div className="mt-2 ml-8 text-yellow-400 text-xs bg-yellow-500/10 rounded p-2 border border-yellow-500/30">
+                                      <div className="font-medium">Camina hasta la parada {segIdx + 2} para tomar el siguiente bus</div>
+                                    </div>
+                                    {/* Info del segmento - FUERA del cuadro amarillo */}
+                                    <div className="flex gap-3 text-xs text-slate-400 ml-8 mt-2">
                                       <span>{segmento.tiempoEstimadoMinutos || 15} min</span>
                                       <span>${segmento.ruta?.tarifa || '0.25'}</span>
                                       {segmento.paradasIntermedias && (
                                         <span>{segmento.paradasIntermedias.length} paradas</span>
                                       )}
                                     </div>
-                                  </div>
+                                  </>
                                 )}
                               </div>
                             ))}
