@@ -479,18 +479,10 @@ export default function MapPageNew() {
                                     {/* Parada de bajada (solo si es la última o hay transbordo) */}
                                     {(segIdx === rec.segmentos.length - 1 || segIdx < rec.segmentos.length - 1) && (
                                       <div className="flex items-center gap-2 text-xs mt-1">
-                                        <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold ${
-                                          segIdx === rec.segmentos.length - 1 
-                                            ? 'bg-red-500 text-white' 
-                                            : 'bg-yellow-500 text-black'
-                                        }`}>
+                                        <div className="flex items-center justify-center w-6 h-6 rounded-full font-bold bg-red-500 text-white">
                                           {segIdx + 2}
                                         </div>
-                                        <span className={`font-medium ${
-                                          segIdx === rec.segmentos.length - 1 
-                                            ? 'text-red-300' 
-                                            : 'text-yellow-300'
-                                        }`}>
+                                        <span className="font-medium text-red-300">
                                           {segmento.paradaDestino?.nombre}
                                         </span>
                                         {segIdx < rec.segmentos.length - 1 && (
@@ -536,24 +528,12 @@ export default function MapPageNew() {
                                 </div>
                                 
                                 {/* Información de bajada */}
-                                <div className={`flex items-start gap-2 rounded p-2 ml-8 ${
-                                  segIdx === rec.segmentos.length - 1 
-                                    ? 'bg-red-600/20' 
-                                    : 'bg-yellow-600/20'
-                                }`}>
-                                  <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold flex-shrink-0 ${
-                                    segIdx === rec.segmentos.length - 1 
-                                      ? 'bg-red-500 text-white' 
-                                      : 'bg-yellow-500 text-black'
-                                  }`}>
+                                <div className="flex items-start gap-2 rounded p-2 ml-8 bg-red-600/20">
+                                  <div className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold flex-shrink-0 bg-red-500 text-white">
                                     {segIdx + 2}
                                   </div>
                                   <div className="flex-1">
-                                    <div className={`font-medium text-xs ${
-                                      segIdx === rec.segmentos.length - 1 
-                                        ? 'text-red-300' 
-                                        : 'text-yellow-300'
-                                    }`}>
+                                    <div className="font-medium text-xs text-red-300">
                                       Baja en: {segmento.paradaDestino?.nombre}
                                     </div>
                                     {segIdx === rec.segmentos.length - 1 && rec.distanciaCaminataDestinoMetros && (
