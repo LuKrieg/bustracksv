@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import Header from '../../layout/Header';
-import ContentBox from '../../layout/ContentBox';
 import perfilService from '../../../services/perfilService';
 
 export default function ProfilePage() {
@@ -77,23 +76,26 @@ export default function ProfilePage() {
 
   if (loading && !profile) {
     return (
-      <>
+      <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_50%_100%,#1b2250_0%,#0b0f24_60%,#060816_100%)]">
         <Header />
-        <ContentBox>
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500 mx-auto"></div>
-            <p className="text-slate-400 mt-4">Cargando perfil...</p>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto bg-white/5 backdrop-blur-md rounded-2xl shadow-xl p-8">
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500 mx-auto"></div>
+              <p className="text-slate-400 mt-4">Cargando perfil...</p>
+            </div>
           </div>
-        </ContentBox>
-      </>
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_50%_100%,#1b2250_0%,#0b0f24_60%,#060816_100%)]">
       <Header />
-      <ContentBox>
-        <div className="max-w-2xl mx-auto">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto bg-white/5 backdrop-blur-md rounded-2xl shadow-xl p-8">
+          <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-white">Mi Perfil</h1>
             <button
@@ -236,9 +238,10 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+          </div>
         </div>
-      </ContentBox>
-    </>
+      </div>
+    </div>
   );
 }
 
