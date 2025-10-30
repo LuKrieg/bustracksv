@@ -774,6 +774,7 @@ export default function MapPageNew() {
                 )}
               </div>
             </div>
+            )}
           </div>
 
           {/* Mapa */}
