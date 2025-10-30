@@ -454,31 +454,171 @@ export default function MapPageNew() {
                           </div>
                         </div>
 
-                        <div className="space-y-2 text-xs mb-3">
-                          <div className="flex items-start gap-2 bg-green-600/20 rounded p-2">
-                            <div className="flex-shrink-0 w-3 h-3 bg-green-500 rounded-full mt-0.5"></div>
-                                <div>
-                              <div className="font-medium text-green-300">
-                                Sube: {primerSegmento.paradaOrigen?.nombre || 'N/A'}
+                        {/* Mostrar pasos detallados para transbordos */}
+                        {rec.tipo === 'transbordo' && rec.segmentos.length > 1 ? (
+                          <div className="space-y-3 text-sm mb-3">
+                            {/* Numeración de paradas principal */}
+                            <div className="bg-gradient-to-r from-sky-500/20 to-purple-500/20 rounded-lg p-3 mb-3">
+                              <div className="text-xs font-semibold text-sky-300 mb-2">
+                                📍 Tu viaje en {rec.segmentos.length} buses ({rec.transbordos} transbordo{rec.transbordos > 1 ? 's' : ''}):
                               </div>
-                              <div className="text-slate-400">
-                                {rec.distanciaCaminataOrigenMetros ? Math.round(rec.distanciaCaminataOrigenMetros) : 0}m de tu origen
+                              <div className="space-y-1">
+                                {rec.segmentos.map((segmento, segIdx) => (
+                                  <div key={`paradas-${segIdx}`}>
+                                    {/* Parada de subida */}
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white font-bold">
+                                        {segIdx + 1}
+                                      </div>
+                                      <span className="text-green-300 font-medium">
+                                        {segmento.paradaOrigen?.nombre}
+                                      </span>
+                                      <span className="text-slate-400">→ Ruta {segmento.ruta?.numero_ruta}</span>
+                                    </div>
+                                    
+                                    {/* Parada de bajada (solo si es la última o hay transbordo) */}
+                                    {(segIdx === rec.segmentos.length - 1 || segIdx < rec.segmentos.length - 1) && (
+                                      <div className="flex items-center gap-2 text-xs mt-1">
+                                        <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold ${
+                                          segIdx === rec.segmentos.length - 1 
+                                            ? 'bg-red-500 text-white' 
+                                            : 'bg-yellow-500 text-black'
+                                        }`}>
+                                          {segIdx + 2}
+                                        </div>
+                                        <span className={`font-medium ${
+                                          segIdx === rec.segmentos.length - 1 
+                                            ? 'text-red-300' 
+                                            : 'text-yellow-300'
+                                        }`}>
+                                          {segmento.paradaDestino?.nombre}
+                                        </span>
+                                        {segIdx < rec.segmentos.length - 1 && (
+                                          <span className="text-slate-400">🚶 Transbordo</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* Detalles por segmento */}
+                            {rec.segmentos.map((segmento, segIdx) => (
+                              <div key={segIdx} className="bg-white/5 rounded-lg p-3 space-y-2">
+                                {/* Paso del bus */}
+                                <div className="flex items-start gap-2">
+                                  <span className="text-2xl">🚌</span>
+                                  <div className="flex-1">
+                                    <div className="font-bold text-sky-300 text-base">
+                                      Bus {segIdx + 1}: Ruta {segmento.ruta?.numero_ruta}
+                                    </div>
+                                    <div className="text-sm text-slate-200 mt-1">
+                                      {segmento.ruta?.nombre}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Información de subida */}
+                                <div className="flex items-start gap-2 bg-green-600/20 rounded p-2 ml-8">
+                                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold flex-shrink-0">
+                                    {segIdx + 1}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="font-medium text-green-300 text-xs">
+                                      Sube en: {segmento.paradaOrigen?.nombre}
+                                    </div>
+                                    {segIdx === 0 && rec.distanciaCaminataOrigenMetros && (
+                                      <div className="text-xs text-slate-400">
+                                        📏 {Math.round(rec.distanciaCaminataOrigenMetros)}m de tu origen
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Información de bajada */}
+                                <div className={`flex items-start gap-2 rounded p-2 ml-8 ${
+                                  segIdx === rec.segmentos.length - 1 
+                                    ? 'bg-red-600/20' 
+                                    : 'bg-yellow-600/20'
+                                }`}>
+                                  <div className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold flex-shrink-0 ${
+                                    segIdx === rec.segmentos.length - 1 
+                                      ? 'bg-red-500 text-white' 
+                                      : 'bg-yellow-500 text-black'
+                                  }`}>
+                                    {segIdx + 2}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className={`font-medium text-xs ${
+                                      segIdx === rec.segmentos.length - 1 
+                                        ? 'text-red-300' 
+                                        : 'text-yellow-300'
+                                    }`}>
+                                      Baja en: {segmento.paradaDestino?.nombre}
+                                    </div>
+                                    {segIdx === rec.segmentos.length - 1 && rec.distanciaCaminataDestinoMetros && (
+                                      <div className="text-xs text-slate-400">
+                                        📏 {Math.round(rec.distanciaCaminataDestinoMetros)}m de tu destino
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Info del segmento */}
+                                <div className="flex gap-3 text-xs text-slate-400 ml-8">
+                                  <span>⏱️ {segmento.tiempoEstimadoMinutos || 15} min</span>
+                                  <span>💵 ${segmento.ruta?.tarifa || '0.25'}</span>
+                                  {segmento.paradasIntermedias && (
+                                    <span>🚏 {segmento.paradasIntermedias.length} paradas</span>
+                                  )}
+                                </div>
+                                
+                                {/* Indicador de transbordo */}
+                                {segIdx < rec.segmentos.length - 1 && (
+                                  <div className="flex items-center gap-2 mt-2 ml-8 text-yellow-400 text-xs bg-yellow-500/10 rounded p-2 border border-yellow-500/30">
+                                    <span className="text-lg">🚶‍♀️</span>
+                                    <span className="font-medium">Camina hasta la parada {segIdx + 2} para tomar el siguiente bus</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                            
+                            {/* Resumen total */}
+                            <div className="flex gap-3 text-xs text-slate-400 bg-white/5 rounded p-2">
+                              <span className="font-medium">Total:</span>
+                              <span>🚏 {rec.numParadas || 0} paradas</span>
+                              <span>🚶 {Math.round((rec.distanciaCaminataOrigenMetros || 0) + (rec.distanciaCaminataDestinoMetros || 0))}m caminata</span>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Vista simplificada para rutas directas */
+                          <div className="space-y-2 text-xs mb-3">
+                            <div className="flex items-start gap-2 bg-green-600/20 rounded p-2">
+                              <div className="flex-shrink-0 w-3 h-3 bg-green-500 rounded-full mt-0.5"></div>
+                              <div>
+                                <div className="font-medium text-green-300">
+                                  Sube: {primerSegmento.paradaOrigen?.nombre || 'N/A'}
+                                </div>
+                                <div className="text-slate-400">
+                                  {rec.distanciaCaminataOrigenMetros ? Math.round(rec.distanciaCaminataOrigenMetros) : 0}m de tu origen
                                 </div>
                               </div>
                             </div>
                             
-                          <div className="flex items-start gap-2 bg-red-600/20 rounded p-2">
-                            <div className="flex-shrink-0 w-3 h-3 bg-red-500 rounded-full mt-0.5"></div>
-                            <div>
-                              <div className="font-medium text-red-300">
-                                Baja: {rec.segmentos[rec.segmentos.length - 1].paradaDestino?.nombre || 'N/A'}
+                            <div className="flex items-start gap-2 bg-red-600/20 rounded p-2">
+                              <div className="flex-shrink-0 w-3 h-3 bg-red-500 rounded-full mt-0.5"></div>
+                              <div>
+                                <div className="font-medium text-red-300">
+                                  Baja: {rec.segmentos[rec.segmentos.length - 1].paradaDestino?.nombre || 'N/A'}
+                                </div>
+                                <div className="text-slate-400">
+                                  {rec.distanciaCaminataDestinoMetros ? Math.round(rec.distanciaCaminataDestinoMetros) : 0}m de tu destino
+                                </div>
                               </div>
-                              <div className="text-slate-400">
-                                {rec.distanciaCaminataDestinoMetros ? Math.round(rec.distanciaCaminataDestinoMetros) : 0}m de tu destino
-                              </div>
-                                      </div>
-                                    </div>
-                                  </div>
+                            </div>
+                          </div>
+                        )}
                                   
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
                           <div className="flex gap-2">

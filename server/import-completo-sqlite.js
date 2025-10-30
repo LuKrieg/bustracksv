@@ -219,6 +219,11 @@ const rutasReales = [
   { numero_ruta: '11', nombre: 'San Marcos - Metrocentro San Salvador', descripcion: 'Ruta comercial y turística desde San Marcos', empresa: 'VMT', tipo: 'Bus', tarifa: 0.25, color: '#E91E63', horario_inicio: '05:00:00', horario_fin: '22:00:00', frecuencia_minutos: 10 },
   { numero_ruta: '12', nombre: 'Planes de Renderos - Centro', descripcion: 'Ruta turística a Los Planes', empresa: 'VMT', tipo: 'Bus', tarifa: 0.30, color: '#673AB7', horario_inicio: '05:30:00', horario_fin: '20:00:00', frecuencia_minutos: 20 },
   { numero_ruta: '52-A', nombre: 'Centro - Hospital Rosales - Bloom', descripcion: 'Ruta hospitalaria principal', empresa: 'Autobuses del Oriente', tipo: 'Bus', tarifa: 0.25, color: '#8E44AD', horario_inicio: '05:00:00', horario_fin: '21:00:00', frecuencia_minutos: 15 },
+  // Rutas adicionales para crear más opciones de transbordo
+  { numero_ruta: '3', nombre: 'Nejapa - Metrocentro', descripcion: 'Ruta del norte', empresa: 'Autobuses del Norte', tipo: 'Bus', tarifa: 0.30, color: '#2196F3', horario_inicio: '05:00:00', horario_fin: '21:00:00', frecuencia_minutos: 15 },
+  { numero_ruta: '4', nombre: 'UES - Metrocentro - Multiplaza', descripcion: 'Ruta universitaria', empresa: 'Autobuses AMSS', tipo: 'Bus', tarifa: 0.25, color: '#009688', horario_inicio: '05:00:00', horario_fin: '22:00:00', frecuencia_minutos: 10 },
+  { numero_ruta: '5', nombre: 'Hospital Rosales - Metrocentro - UCA', descripcion: 'Ruta hospitalaria y universitaria', empresa: 'Transporte Capitalino', tipo: 'Bus', tarifa: 0.25, color: '#FF9800', horario_inicio: '05:00:00', horario_fin: '21:00:00', frecuencia_minutos: 12 },
+  { numero_ruta: '6', nombre: 'Soyapango - UES - Hospital Rosales', descripcion: 'Ruta transversal este', empresa: 'Transporte del Este', tipo: 'Bus', tarifa: 0.30, color: '#795548', horario_inicio: '05:00:00', horario_fin: '21:00:00', frecuencia_minutos: 15 },
 ];
 
 /**
@@ -289,6 +294,33 @@ const relacionesRutaParada = {
     { parada: 'HRO-001', orden: 2, tiempo: 15 },
     { parada: 'HBL-001', orden: 3, tiempo: 20 },
     { parada: 'HMAT-001', orden: 4, tiempo: 25 },
+  ],
+  // Nuevas relaciones para rutas adicionales
+  '3': [
+    { parada: 'NEJAPA-001', orden: 1, tiempo: 0 },
+    { parada: 'MEJ-CEN', orden: 2, tiempo: 25 },
+    { parada: 'HRO-001', orden: 3, tiempo: 40 },
+    { parada: 'MCP-001', orden: 4, tiempo: 55 },
+  ],
+  '4': [
+    { parada: 'UES-001', orden: 1, tiempo: 0 },
+    { parada: 'HRO-001', orden: 2, tiempo: 15 },
+    { parada: 'MCP-001', orden: 3, tiempo: 30 },
+    { parada: 'MUL-001', orden: 4, tiempo: 50 },
+  ],
+  '5': [
+    { parada: 'HRO-001', orden: 1, tiempo: 0 },
+    { parada: 'TC-001', orden: 2, tiempo: 15 },
+    { parada: 'MCP-001', orden: 3, tiempo: 25 },
+    { parada: 'GAL-001', orden: 4, tiempo: 35 },
+    { parada: 'UCA-001', orden: 5, tiempo: 50 },
+  ],
+  '6': [
+    { parada: 'SOY-CEN', orden: 1, tiempo: 0 },
+    { parada: 'UNICEN', orden: 2, tiempo: 10 },
+    { parada: 'MCP-001', orden: 3, tiempo: 25 },
+    { parada: 'UES-001', orden: 4, tiempo: 40 },
+    { parada: 'HRO-001', orden: 5, tiempo: 50 },
   ],
 };
 
@@ -442,4 +474,5 @@ async function importarDatosCompletos() {
 
 // Ejecutar importación
 importarDatosCompletos();
+
 
