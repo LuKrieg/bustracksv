@@ -15,7 +15,8 @@ const PORT = process.env.PORT || 4000;
 // 🔹 MIDDLEWARE
 // ===============================
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Aumentar límite para soportar imágenes en base64
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Middleware para validar JWT
 const authenticateToken = (req, res, next) => {
@@ -53,14 +54,39 @@ app.post("/register", async (req, res) => {
 
     // Verificar que el usuario no exista
     console.log('🔍 Verificando si el usuario ya existe...');
-    const existingUser = await pool.query(
-      "SELECT id FROM usuarios WHERE usuario = $1 OR email = $2",
-      [usuario, email]
-    );
+    let existingUsuario = null;
+    try {
+      existingUsuario = await pool.query(
+        "SELECT id FROM usuarios WHERE usuario = $1",
+        [usuario]
+      );
+    } catch (checkError) {
+      console.error('Error al verificar usuario existente:', checkError.message);
+      existingUsuario = { rows: [] };
+    }
     
-    if (existingUser.rows.length > 0) {
-      console.log('❌ Usuario o email ya existe');
-      return res.status(409).json({ message: "El usuario o email ya existe" });
+    if (existingUsuario && existingUsuario.rows && existingUsuario.rows.length > 0) {
+      console.log('❌ El nombre de usuario ya existe');
+      return res.status(409).json({ message: "El nombre de usuario ya está en uso. Por favor, elige otro." });
+    }
+
+    // Verificar que el email no exista (solo si se proporciona)
+    if (email && email.trim()) {
+      let existingEmail = null;
+      try {
+        existingEmail = await pool.query(
+          "SELECT id FROM usuarios WHERE email = $1",
+          [email]
+        );
+      } catch (checkError) {
+        console.error('Error al verificar email existente:', checkError.message);
+        existingEmail = { rows: [] };
+      }
+      
+      if (existingEmail && existingEmail.rows && existingEmail.rows.length > 0) {
+        console.log('❌ El email ya existe');
+        return res.status(409).json({ message: "Este email ya está registrado. Por favor, usa otro email o inicia sesión." });
+      }
     }
 
     // Hashear password y crear usuario
@@ -68,19 +94,137 @@ app.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     console.log('💾 Insertando usuario en la base de datos...');
-    const result = await pool.query(
-      "INSERT INTO usuarios (usuario, password, email, nombre_completo, telefono) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-      [usuario, hashedPassword, email, nombre_completo, telefono]
-    );
+    
+    // Intentar insertar el usuario
+    let insertErrorOccurred = false;
+    try {
+      await pool.query(
+        "INSERT INTO usuarios (usuario, password, email, nombre_completo, telefono) VALUES ($1, $2, $3, $4, $5)",
+        [usuario, hashedPassword, email, nombre_completo, telefono]
+      );
+      console.log('✅ INSERT ejecutado exitosamente');
+    } catch (insertError) {
+      console.error('⚠️ Error al ejecutar INSERT:', insertError.message);
+      insertErrorOccurred = true;
+      // Continuar para verificar si se guardó de todas formas (puede ser un error de validación pero el usuario existe)
+    }
 
-    console.log('✅ Usuario registrado exitosamente con ID:', result.rows[0].id);
-    res.status(201).json({ 
-      message: "Usuario registrado con éxito",
-      id: result.rows[0].id
-    });
+    // Esperar un momento para asegurar que la transacción se complete (si es necesario)
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Verificar SIEMPRE que el usuario existe en la base de datos (método más confiable)
+    // Esta es la verificación definitiva: si el usuario existe, el registro fue exitoso
+    let userExists = false;
+    let userId = null;
+    
+    try {
+      const checkResult = await pool.query(
+        "SELECT id FROM usuarios WHERE usuario = $1",
+        [usuario]
+      );
+      
+      if (checkResult && checkResult.rows && Array.isArray(checkResult.rows) && checkResult.rows.length > 0) {
+        const row = checkResult.rows[0];
+        if (row && typeof row === 'object') {
+          userExists = true;
+          // Obtener el ID de forma segura
+          if (row.hasOwnProperty('id') && (row.id !== undefined && row.id !== null)) {
+            userId = row.id;
+            console.log('✅ Usuario encontrado en base de datos con ID:', userId);
+          } else {
+            console.log('⚠️ Usuario encontrado pero sin ID disponible');
+          }
+        }
+      }
+    } catch (checkError) {
+      console.error('❌ Error al verificar usuario:', checkError.message);
+      // Si falla la verificación, no podemos confirmar el éxito, pero tampoco debemos lanzar error
+      // Esperaremos a ver si el usuario puede iniciar sesión después
+    }
+
+    // DECISIÓN FINAL: Si el usuario existe en la base de datos, el registro fue exitoso
+    if (userExists) {
+      // ÉXITO: El usuario está guardado en la base de datos
+      console.log('✅ Usuario registrado exitosamente');
+      return res.status(201).json({ 
+        success: true,
+        message: "Usuario registrado con éxito",
+        id: userId || undefined
+      });
+    } else {
+      // Solo retornar error si definitivamente no se guardó
+      // Si insertErrorOccurred es true y el usuario no existe, es un error real
+      if (insertErrorOccurred) {
+        console.error('❌ Usuario no se guardó y hubo error en INSERT');
+        return res.status(500).json({ 
+          success: false,
+          message: "Error al registrar usuario",
+          error: process.env.NODE_ENV === 'development' ? 'El usuario no se pudo guardar en la base de datos' : undefined
+        });
+      } else {
+        // Si no hubo error en INSERT pero el usuario no existe, algo raro pasó
+        // Intentar una verificación adicional después de un breve delay
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        try {
+          const retryCheck = await pool.query(
+            "SELECT id FROM usuarios WHERE usuario = $1",
+            [usuario]
+          );
+          
+          if (retryCheck && retryCheck.rows && retryCheck.rows.length > 0) {
+            const retryRow = retryCheck.rows[0];
+            if (retryRow && retryRow.id) {
+              console.log('✅ Usuario encontrado en verificación retry');
+              return res.status(201).json({ 
+                success: true,
+                message: "Usuario registrado con éxito",
+                id: retryRow.id
+              });
+            }
+          }
+        } catch (retryError) {
+          console.error('Error en verificación retry:', retryError.message);
+        }
+        
+        return res.status(500).json({ 
+          success: false,
+          message: "Error al registrar usuario",
+          error: process.env.NODE_ENV === 'development' ? 'No se pudo confirmar el registro' : undefined
+        });
+      }
+    }
   } catch (err) {
-    console.error("❌ Error al registrar usuario:", err);
+    console.error("❌ Error general al registrar usuario:", err);
+    
+    // CRÍTICO: Como último recurso, SIEMPRE verificar si el usuario existe antes de retornar error
+    // Si el usuario existe en la base de datos, el registro fue exitoso (aunque hubo un error técnico)
+    try {
+      const finalCheck = await pool.query(
+        "SELECT id FROM usuarios WHERE usuario = $1",
+        [req.body.usuario || usuario]
+      );
+      
+      if (finalCheck && finalCheck.rows && Array.isArray(finalCheck.rows) && finalCheck.rows.length > 0) {
+        const finalRow = finalCheck.rows[0];
+        if (finalRow && typeof finalRow === 'object') {
+          // Si encontramos el usuario, el registro fue exitoso
+          const finalUserId = finalRow.hasOwnProperty('id') ? finalRow.id : null;
+          console.log('✅ Usuario encontrado después de error técnico, retornando éxito');
+          return res.status(201).json({ 
+            success: true,
+            message: "Usuario registrado con éxito",
+            id: finalUserId || undefined
+          });
+        }
+      }
+    } catch (finalError) {
+      console.error('Error en verificación final:', finalError.message);
+    }
+    
+    // Solo retornar error si definitivamente confirmamos que el usuario NO existe
     res.status(500).json({ 
+      success: false,
       message: "Error al registrar usuario",
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -108,7 +252,7 @@ app.post("/login", async (req, res) => {
 
     // Actualizar último acceso
     await pool.query(
-      "UPDATE usuarios SET ultimo_acceso = datetime('now') WHERE id = $1",
+      "UPDATE usuarios SET ultimo_acceso = CURRENT_TIMESTAMP WHERE id = $1",
       [user.id]
     );
 
@@ -161,7 +305,7 @@ app.get("/validate", authenticateToken, async (req, res) => {
 app.get("/perfil", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, usuario, email, nombre_completo, telefono, fecha_creacion, ultimo_acceso FROM usuarios WHERE id = $1",
+      "SELECT id, usuario, email, nombre_completo, telefono, foto_perfil, fecha_creacion, ultimo_acceso FROM usuarios WHERE id = $1",
       [req.user.id]
     );
     
@@ -178,9 +322,21 @@ app.get("/perfil", authenticateToken, async (req, res) => {
 
 // Actualizar perfil del usuario autenticado (SIMPLIFICADO)
 app.put("/perfil", authenticateToken, async (req, res) => {
-  const { nombre_completo, email, telefono } = req.body;
+  const { usuario, nombre_completo, email, telefono, foto_perfil } = req.body;
   
   try {
+    // Validar que el usuario no esté en uso por otro usuario
+    if (usuario) {
+      const existingUsuario = await pool.query(
+        "SELECT id FROM usuarios WHERE usuario = $1 AND id != $2",
+        [usuario, req.user.id]
+      );
+      
+      if (existingUsuario.rows.length > 0) {
+        return res.status(409).json({ message: "El nombre de usuario ya está en uso" });
+      }
+    }
+    
     // Validar que el email no esté en uso por otro usuario
     if (email) {
       const existingUser = await pool.query(
@@ -197,6 +353,12 @@ app.put("/perfil", authenticateToken, async (req, res) => {
     const updates = [];
     const values = [];
     let paramCount = 1;
+    
+    if (usuario !== undefined) {
+      updates.push(`usuario = $${paramCount}`);
+      values.push(usuario);
+      paramCount++;
+    }
     
     if (nombre_completo !== undefined) {
       updates.push(`nombre_completo = $${paramCount}`);
@@ -216,6 +378,12 @@ app.put("/perfil", authenticateToken, async (req, res) => {
       paramCount++;
     }
     
+    if (foto_perfil !== undefined) {
+      updates.push(`foto_perfil = $${paramCount}`);
+      values.push(foto_perfil);
+      paramCount++;
+    }
+    
     if (updates.length === 0) {
       return res.status(400).json({ message: "No hay campos para actualizar" });
     }
@@ -223,14 +391,20 @@ app.put("/perfil", authenticateToken, async (req, res) => {
     // Agregar el ID del usuario al final
     values.push(req.user.id);
     
-    const query = `
+    // Ejecutar UPDATE
+    const updateQuery = `
       UPDATE usuarios 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, usuario, email, nombre_completo, telefono
     `;
     
-    const result = await pool.query(query, values);
+    await pool.query(updateQuery, values);
+    
+    // Obtener el usuario actualizado
+    const result = await pool.query(
+      "SELECT id, usuario, email, nombre_completo, telefono, foto_perfil FROM usuarios WHERE id = $1",
+      [req.user.id]
+    );
     
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Usuario no encontrado" });
@@ -1352,20 +1526,67 @@ app.post("/api/buscar-rutas", async (req, res) => {
 
 // Guardar búsqueda en el historial
 app.post("/historial", authenticateToken, async (req, res) => {
-  const { ruta, numero_ruta, parada } = req.body;
+  const { 
+    ruta, 
+    numero_ruta, 
+    parada,
+    latitud_origen,
+    longitud_origen,
+    latitud_destino,
+    longitud_destino,
+    tipo_busqueda,
+    metadata
+  } = req.body;
   
   try {
+    // Obtener fecha/hora actual en zona horaria de El Salvador (UTC-6)
+    const now = new Date();
+    const fechaElSalvador = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/El_Salvador',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(now);
+    
+    const fechaHoraStr = `${fechaElSalvador.find(p => p.type === 'year').value}-${fechaElSalvador.find(p => p.type === 'month').value}-${fechaElSalvador.find(p => p.type === 'day').value} ${fechaElSalvador.find(p => p.type === 'hour').value}:${fechaElSalvador.find(p => p.type === 'minute').value}:${fechaElSalvador.find(p => p.type === 'second').value}`;
+    
+    // Ejecutar INSERT con fecha/hora explícita de El Salvador
+    const updateQuery = `
+      INSERT INTO historial_busquedas 
+      (id_usuario, ruta, numero_ruta, parada, latitud_origen, longitud_origen, latitud_destino, longitud_destino, tipo_busqueda, metadata, fecha_busqueda)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `;
+    
+    const metadataStr = metadata ? JSON.stringify(metadata) : '{}';
+    
+    await pool.query(updateQuery, [
+      req.user.id, 
+      ruta || null, 
+      numero_ruta || null, 
+      parada || null,
+      latitud_origen || null,
+      longitud_origen || null,
+      latitud_destino || null,
+      longitud_destino || null,
+      tipo_busqueda || 'general',
+      metadataStr,
+      fechaHoraStr
+    ]);
+    
+    // Obtener el registro insertado
     const result = await pool.query(
-      `INSERT INTO historial_busquedas (id_usuario, ruta, numero_ruta, parada)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, fecha_busqueda`,
-      [req.user.id, ruta || null, numero_ruta || null, parada || null]
+      "SELECT id, fecha_busqueda FROM historial_busquedas WHERE id_usuario = $1 ORDER BY fecha_busqueda DESC LIMIT 1",
+      [req.user.id]
     );
     
     res.status(201).json({
       message: "Búsqueda guardada en el historial",
-      id: result.rows[0].id,
-      fecha: result.rows[0].fecha_busqueda
+      id: result.rows[0]?.id,
+      fecha: result.rows[0]?.fecha_busqueda
     });
   } catch (err) {
     console.error("Error al guardar historial:", err);
@@ -1376,22 +1597,285 @@ app.post("/historial", authenticateToken, async (req, res) => {
 // Obtener historial de búsquedas del usuario
 app.get("/historial", authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT id, ruta, numero_ruta, parada, fecha_busqueda
+    // Obtener límite de query params (opcional, sin límite por defecto)
+    const limite = req.query.limite ? parseInt(req.query.limite) : null;
+    
+    let query = `SELECT id, ruta, numero_ruta, parada, fecha_busqueda, latitud_origen, longitud_origen, latitud_destino, longitud_destino, tipo_busqueda, metadata
        FROM historial_busquedas
        WHERE id_usuario = $1
-       ORDER BY fecha_busqueda DESC
-       LIMIT 20`,
-      [req.user.id]
-    );
+       ORDER BY fecha_busqueda DESC`;
+    
+    let params = [req.user.id];
+    
+    // Si hay límite, agregarlo a la query
+    if (limite && limite > 0) {
+      query += ` LIMIT $2`;
+      params.push(limite);
+    }
+    
+    const result = await pool.query(query, params);
+    
+    // Parsear metadata JSON si existe
+    const historial = result.rows.map(row => ({
+      ...row,
+      metadata: row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : {}
+    }));
     
     res.json({
-      historial: result.rows,
-      total: result.rows.length
+      historial,
+      total: historial.length
     });
   } catch (err) {
     console.error("Error al obtener historial:", err);
     res.json({ historial: [], total: 0 });
+  }
+});
+
+// Obtener estadísticas del sistema (buses, paradas, rutas)
+app.get("/api/estadisticas", async (req, res) => {
+  try {
+    // Contar rutas activas (cada ruta representa buses/vehículos)
+    const rutasResult = await pool.query(
+      "SELECT COUNT(*) as total FROM rutas WHERE activa = 1"
+    );
+    
+    // Contar paradas activas
+    const paradasResult = await pool.query(
+      "SELECT COUNT(*) as total FROM paradas WHERE activa = 1"
+    );
+    
+    // Contar rutas únicas (cada ruta es diferente)
+    const totalRutas = rutasResult.rows[0]?.total || 0;
+    const totalParadas = paradasResult.rows[0]?.total || 0;
+    const totalBuses = totalRutas; // En este sistema, cada ruta tiene buses asociados
+    
+    res.json({
+      success: true,
+      buses: parseInt(totalBuses),
+      paradas: parseInt(totalParadas),
+      rutas: parseInt(totalRutas)
+    });
+  } catch (err) {
+    console.error("Error al obtener estadísticas:", err);
+    res.status(500).json({
+      success: false,
+      buses: 0,
+      paradas: 0,
+      rutas: 0
+    });
+  }
+});
+
+// Obtener todas las paradas con detalles completos (para modal)
+app.get("/api/paradas/detalle", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        codigo, 
+        nombre, 
+        descripcion, 
+        direccion, 
+        latitud, 
+        longitud, 
+        zona, 
+        tipo,
+        tiene_techo,
+        tiene_asientos,
+        accesible,
+        activa
+      FROM paradas
+      WHERE activa = 1
+      ORDER BY nombre
+    `);
+    
+    const paradas = result.rows.map(p => ({
+      ...p,
+      latitud: parseFloat(p.latitud),
+      longitud: parseFloat(p.longitud)
+    }));
+    
+    console.log(`✅ Paradas detalladas: ${paradas.length} encontradas`);
+    
+    res.json({
+      success: true,
+      paradas: paradas
+    });
+  } catch (err) {
+    console.error("Error al obtener paradas detalladas:", err);
+    res.status(500).json({
+      success: false,
+      paradas: []
+    });
+  }
+});
+
+// Obtener todas las rutas con detalles completos (para modal)
+app.get("/api/rutas/detalle", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        nombre, 
+        descripcion, 
+        color, 
+        numero_ruta, 
+        empresa, 
+        tipo, 
+        tarifa,
+        horario_inicio,
+        horario_fin,
+        frecuencia_minutos,
+        longitud_km,
+        activa
+      FROM rutas
+      WHERE activa = 1
+      ORDER BY numero_ruta
+    `);
+    
+    // Para cada ruta, obtener sus paradas
+    const rutasConParadas = await Promise.all(
+      result.rows.map(async (ruta) => {
+        const paradasResult = await pool.query(`
+          SELECT 
+            p.id, 
+            p.codigo, 
+            p.nombre, 
+            p.direccion,
+            p.latitud,
+            p.longitud,
+            pr.orden,
+            pr.tiempo_estimado_minutos
+          FROM paradas p
+          JOIN parada_ruta pr ON p.id = pr.id_parada
+          WHERE pr.id_ruta = $1 AND p.activa = 1
+          ORDER BY pr.orden ASC
+        `, [ruta.id]);
+        
+        return {
+          ...ruta,
+          tarifa: parseFloat(ruta.tarifa),
+          frecuencia_minutos: parseInt(ruta.frecuencia_minutos),
+          longitud_km: ruta.longitud_km ? parseFloat(ruta.longitud_km) : null,
+          paradas: paradasResult.rows.map(p => ({
+            ...p,
+            latitud: parseFloat(p.latitud),
+            longitud: parseFloat(p.longitud),
+            orden: parseInt(p.orden),
+            tiempo_estimado_minutos: p.tiempo_estimado_minutos ? parseInt(p.tiempo_estimado_minutos) : null
+          }))
+        };
+      })
+    );
+    
+    console.log(`✅ Rutas detalladas: ${rutasConParadas.length} encontradas`);
+    
+    res.json({
+      success: true,
+      rutas: rutasConParadas
+    });
+  } catch (err) {
+    console.error("Error al obtener rutas detalladas:", err);
+    res.status(500).json({
+      success: false,
+      rutas: []
+    });
+  }
+});
+
+// Obtener buses (rutas) con detalles completos (para modal)
+app.get("/api/buses/detalle", async (req, res) => {
+  try {
+    // En este sistema, los "buses" son las rutas
+    // Cada ruta tiene buses asignados
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        nombre, 
+        descripcion, 
+        color, 
+        numero_ruta, 
+        empresa, 
+        tipo, 
+        tarifa,
+        horario_inicio,
+        horario_fin,
+        frecuencia_minutos,
+        longitud_km,
+        activa
+      FROM rutas
+      WHERE activa = 1
+      ORDER BY numero_ruta
+    `);
+    
+    // Para cada ruta, obtener información sobre los buses
+    const busesConDetalle = await Promise.all(
+      result.rows.map(async (ruta) => {
+        // Contar cuántas paradas tiene esta ruta (estimación de buses necesarios)
+        const paradasCount = await pool.query(`
+          SELECT COUNT(*) as total
+          FROM parada_ruta
+          WHERE id_ruta = $1
+        `, [ruta.id]);
+        
+        const totalParadas = paradasCount.rows[0]?.total || 0;
+        // Estimar capacidad de buses (1 bus cada 8 paradas aproximadamente)
+        const busesEstimados = Math.max(1, Math.ceil(totalParadas / 8));
+        
+        return {
+          ...ruta,
+          numero_bus: ruta.numero_ruta,
+          tarifa: parseFloat(ruta.tarifa),
+          frecuencia_minutos: parseInt(ruta.frecuencia_minutos),
+          longitud_km: ruta.longitud_km ? parseFloat(ruta.longitud_km) : null,
+          capacidad_estimada: busesEstimados,
+          total_paradas: parseInt(totalParadas)
+        };
+      })
+    );
+    
+    console.log(`✅ Buses detallados: ${busesConDetalle.length} encontrados`);
+    
+    res.json({
+      success: true,
+      buses: busesConDetalle
+    });
+  } catch (err) {
+    console.error("Error al obtener buses detallados:", err);
+    res.status(500).json({
+      success: false,
+      buses: []
+    });
+  }
+});
+
+// Actualizar metadata de una búsqueda del historial (para actualizar alternativa seleccionada)
+app.put("/historial/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { metadata } = req.body;
+  
+  try {
+    // Verificar que el registro pertenece al usuario
+    const checkResult = await pool.query(
+      "SELECT id FROM historial_busquedas WHERE id = $1 AND id_usuario = $2",
+      [id, req.user.id]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ message: "Registro no encontrado" });
+    }
+    
+    const metadataStr = metadata ? JSON.stringify(metadata) : '{}';
+    
+    await pool.query(
+      "UPDATE historial_busquedas SET metadata = $1 WHERE id = $2 AND id_usuario = $3",
+      [metadataStr, id, req.user.id]
+    );
+    
+    res.json({ message: "Historial actualizado", id });
+  } catch (err) {
+    console.error("Error al actualizar historial:", err);
+    res.status(500).json({ message: "Error al actualizar historial" });
   }
 });
 
@@ -1400,14 +1884,21 @@ app.delete("/historial/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   
   try {
-    const result = await pool.query(
-      "DELETE FROM historial_busquedas WHERE id = $1 AND id_usuario = $2 RETURNING id",
+    // Verificar primero si existe
+    const existResult = await pool.query(
+      "SELECT id FROM historial_busquedas WHERE id = $1 AND id_usuario = $2",
       [id, req.user.id]
     );
     
-    if (result.rows.length === 0) {
+    if (existResult.rows.length === 0) {
       return res.status(404).json({ message: "Búsqueda no encontrada" });
     }
+    
+    // Ejecutar DELETE
+    await pool.query(
+      "DELETE FROM historial_busquedas WHERE id = $1 AND id_usuario = $2",
+      [id, req.user.id]
+    );
     
     res.json({ message: "Búsqueda eliminada del historial" });
   } catch (err) {

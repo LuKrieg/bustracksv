@@ -63,6 +63,15 @@ const perfilService = {
       reader.onerror = (error) => reject(error);
       reader.readAsDataURL(file);
     });
+  },
+
+  // Alias para compatibilidad
+  getPerfil: function() {
+    return this.obtenerPerfil();
+  },
+
+  updatePerfil: function(datos) {
+    return this.actualizarPerfil(datos);
   }
 };
 

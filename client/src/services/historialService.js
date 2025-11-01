@@ -69,6 +69,23 @@ const historialService = {
         message: error.response?.data?.message || 'Error al limpiar historial'
       };
     }
+  },
+
+  // Actualizar metadata de una búsqueda (para actualizar alternativa seleccionada)
+  actualizarBusqueda: async (id, metadata) => {
+    try {
+      const response = await apiClient.put(`/historial/${id}`, { metadata });
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error al actualizar búsqueda:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Error al actualizar búsqueda'
+      };
+    }
   }
 };
 
