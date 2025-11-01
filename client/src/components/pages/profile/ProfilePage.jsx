@@ -89,41 +89,22 @@ export default function ProfilePage() {
     }
 
     try {
+      setMessage({ type: '', text: '' });
+      
       // Convertir a base64
       const base64 = await perfilService.convertirImagenABase64(file);
       setFotoPerfil(base64);
       setPrevisualizacionFoto(base64);
-    } catch (error) {
-      console.error('Error al procesar imagen:', error);
-      setMessage({ type: 'error', text: 'Error al procesar la imagen' });
-    }
-  };
-
-  // Eliminar foto de perfil
-  const handleEliminarFoto = () => {
-    setFotoPerfil(null);
-    setPrevisualizacionFoto(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-
-    try {
-      // Incluir foto de perfil si cambió
-      const dataToUpdate = { ...formData };
-      if (fotoPerfil !== profile?.foto_perfil) {
-        dataToUpdate.foto_perfil = fotoPerfil;
-      }
-
-      const result = await perfilService.updatePerfil(dataToUpdate);
+      
+      // Guardar automáticamente la foto de perfil
+      setLoading(true);
+      const result = await perfilService.updatePerfil({ foto_perfil: base64 });
+      
       if (result.success) {
-        setMessage({ type: 'success', text: '¡Perfil actualizado exitosamente!' });
-        const updatedProfile = result.data.usuario;
-        setProfile(updatedProfile);
+        setMessage({ type: 'success', text: '¡Foto de perfil guardada exitosamente!' });
         
         // Actualizar foto de perfil guardada
+        const updatedProfile = result.data.usuario;
         if (updatedProfile.foto_perfil) {
           setFotoPerfil(updatedProfile.foto_perfil);
           setPrevisualizacionFoto(updatedProfile.foto_perfil);
@@ -132,10 +113,86 @@ export default function ProfilePage() {
         // Actualizar el usuario en el contexto para que se refleje en el header
         updateUser({
           ...user,
+          foto_perfil: updatedProfile.foto_perfil,
+        });
+        
+        // Actualizar profile local
+        setProfile({
+          ...profile,
+          foto_perfil: updatedProfile.foto_perfil
+        });
+        
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      } else {
+        setMessage({ type: 'error', text: result.message || 'Error al guardar foto de perfil' });
+      }
+    } catch (error) {
+      console.error('Error al procesar imagen:', error);
+      setMessage({ type: 'error', text: 'Error al procesar la imagen' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Eliminar foto de perfil
+  const handleEliminarFoto = async () => {
+    try {
+      setMessage({ type: '', text: '' });
+      setLoading(true);
+      
+      // Guardar automáticamente eliminando la foto
+      const result = await perfilService.updatePerfil({ foto_perfil: null });
+      
+      if (result.success) {
+        setMessage({ type: 'success', text: '¡Foto de perfil eliminada exitosamente!' });
+        
+        setFotoPerfil(null);
+        setPrevisualizacionFoto(null);
+        
+        // Actualizar el usuario en el contexto
+        updateUser({
+          ...user,
+          foto_perfil: null,
+        });
+        
+        // Actualizar profile local
+        setProfile({
+          ...profile,
+          foto_perfil: null
+        });
+        
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      } else {
+        setMessage({ type: 'error', text: result.message || 'Error al eliminar foto de perfil' });
+      }
+    } catch (error) {
+      console.error('Error al eliminar foto:', error);
+      setMessage({ type: 'error', text: 'Error al eliminar la foto de perfil' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // NO incluir foto de perfil porque ya se guarda automáticamente
+      const result = await perfilService.updatePerfil(formData);
+      
+      if (result.success) {
+        setMessage({ type: 'success', text: '¡Perfil actualizado exitosamente!' });
+        const updatedProfile = result.data.usuario;
+        setProfile(updatedProfile);
+        
+        // Actualizar el usuario en el contexto para que se refleje en el header
+        updateUser({
+          ...user,
           usuario: updatedProfile.usuario,
           nombre_completo: updatedProfile.nombre_completo,
           email: updatedProfile.email,
-          foto_perfil: updatedProfile.foto_perfil,
         });
         
         setEditing(false);
@@ -442,8 +499,53 @@ export default function ProfilePage() {
             <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
               <h3 className="text-sm font-semibold text-slate-300 mb-2">Información de la cuenta</h3>
               <div className="text-xs text-slate-400 space-y-1">
-                <p>Cuenta creada: {profile.fecha_creacion ? new Date(profile.fecha_creacion).toLocaleDateString('es-SV') : 'N/A'}</p>
-                <p>Último acceso: {profile.ultimo_acceso ? new Date(profile.ultimo_acceso).toLocaleDateString('es-SV') : 'N/A'}</p>
+                <p>Cuenta creada: {profile.fecha_creacion ? (() => {
+                  try {
+                    let date;
+                    if (typeof profile.fecha_creacion === 'string') {
+                      const dateStr = profile.fecha_creacion.replace('T', ' ');
+                      const [datePart, timePart] = dateStr.split(' ');
+                      const [year, month, day] = datePart.split('-').map(Number);
+                      const [hour = 0, minute = 0, second = 0] = timePart ? timePart.split(':').map(Number) : [0, 0, 0];
+                      date = new Date(Date.UTC(year, month - 1, day, hour + 6, minute, second));
+                    } else {
+                      date = new Date(profile.fecha_creacion);
+                    }
+                    return new Intl.DateTimeFormat('es-SV', {
+                      timeZone: 'America/El_Salvador',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    }).format(date);
+                  } catch {
+                    return 'N/A';
+                  }
+                })() : 'N/A'}</p>
+                <p>Último acceso: {profile.ultimo_acceso ? (() => {
+                  try {
+                    let date;
+                    if (typeof profile.ultimo_acceso === 'string') {
+                      const dateStr = profile.ultimo_acceso.replace('T', ' ');
+                      const [datePart, timePart] = dateStr.split(' ');
+                      const [year, month, day] = datePart.split('-').map(Number);
+                      const [hour = 0, minute = 0, second = 0] = timePart ? timePart.split(':').map(Number) : [0, 0, 0];
+                      date = new Date(Date.UTC(year, month - 1, day, hour + 6, minute, second));
+                    } else {
+                      date = new Date(profile.ultimo_acceso);
+                    }
+                    return new Intl.DateTimeFormat('es-SV', {
+                      timeZone: 'America/El_Salvador',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    }).format(date);
+                  } catch {
+                    return 'N/A';
+                  }
+                })() : 'N/A'}</p>
               </div>
             </div>
           )}

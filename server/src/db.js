@@ -155,20 +155,37 @@ class SQLitePool {
       // Convertir placeholders de PostgreSQL ($1, $2) a SQLite (?, ?)
       let sqlText = text;
       if (params && params.length > 0) {
-        params.forEach((_, index) => {
-          sqlText = sqlText.replace(`$${index + 1}`, '?');
-        });
+        // Reemplazar desde el último hacia el primero para evitar conflictos
+        for (let i = params.length; i > 0; i--) {
+          sqlText = sqlText.replace(new RegExp(`\\$${i}\\b`, 'g'), '?');
+        }
       }
       
-      // Ejecutar query
-      const stmt = this.db.prepare(sqlText);
-      stmt.bind(params);
+      // Determinar si es SELECT o no
+      const isSelect = text.trim().toUpperCase().startsWith('SELECT');
       
-      const rows = [];
-      while (stmt.step()) {
-        rows.push(stmt.getAsObject());
+      let rows = [];
+      
+      if (isSelect) {
+        // Para SELECT, usar step() para obtener filas
+        const stmt = this.db.prepare(sqlText);
+        if (params && params.length > 0) {
+          stmt.bind(params);
+        }
+        
+        while (stmt.step()) {
+          rows.push(stmt.getAsObject());
+        }
+        stmt.free();
+      } else {
+        // Para INSERT/UPDATE/DELETE, usar step()
+        const stmt = this.db.prepare(sqlText);
+        if (params && params.length > 0) {
+          stmt.bind(params);
+        }
+        stmt.step();
+        stmt.free();
       }
-      stmt.free();
       
       // Guardar cambios después de cada query que modifica datos
       if (text.trim().toUpperCase().startsWith('INSERT') || 

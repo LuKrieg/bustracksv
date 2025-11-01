@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import routeService from '../../../services/routeService';
+import historialService from '../../../services/historialService';
+import { useAuth } from '../../../contexts/AuthContext';
 
 // Arreglar iconos de Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -151,6 +153,8 @@ function AutocompleteInput({ value, onChange, suggestions, onSelect, placeholder
 // Componente principal
 export default function MapPageNew() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   
   const [paradas, setParadas] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -165,11 +169,64 @@ export default function MapPageNew() {
   
   const [resultados, setResultados] = useState(null);
   const [rutaSeleccionada, setRutaSeleccionada] = useState(0); // Controla qué ruta mostrar en el mapa
+  const ultimaBusquedaRef = useRef(null); // Referencia para guardar datos de la última búsqueda guardada
 
   // Cargar paradas al iniciar
   useEffect(() => {
     cargarParadas();
   }, []);
+
+  // Cargar datos del historial si vienen desde el Dashboard
+  useEffect(() => {
+    const historialData = location.state?.historial;
+    if (historialData && historialData.latitud_origen && historialData.latitud_destino) {
+      const origenNombre = historialData.metadata?.origenNombre || 'Origen';
+      const destinoNombre = historialData.metadata?.destinoNombre || 'Destino';
+      
+      // Cargar origen y destino desde historial
+      setOrigenInput(origenNombre);
+      setOrigenSeleccionado({
+        lat: historialData.latitud_origen,
+        lng: historialData.longitud_origen,
+        nombre: origenNombre
+      });
+      
+      setDestinoInput(destinoNombre);
+      setDestinoSeleccionado({
+        lat: historialData.latitud_destino,
+        lng: historialData.longitud_destino,
+        nombre: destinoNombre
+      });
+      
+      // Cargar resultados si existen en metadata
+      if (historialData.metadata?.resultados) {
+        setResultados(historialData.metadata.resultados);
+        // Restaurar la alternativa de ruta seleccionada
+        if (historialData.metadata.rutaSeleccionadaIndice !== undefined) {
+          setRutaSeleccionada(historialData.metadata.rutaSeleccionadaIndice);
+        }
+        
+        // Actualizar referencia para poder actualizar el historial si cambia la alternativa
+        if (historialData.id) {
+          ultimaBusquedaRef.current = {
+            id: historialData.id,
+            origen: {
+              lat: historialData.latitud_origen,
+              lng: historialData.longitud_origen,
+              nombre: historialData.metadata.origenNombre
+            },
+            destino: {
+              lat: historialData.latitud_destino,
+              lng: historialData.longitud_destino,
+              nombre: historialData.metadata.destinoNombre
+            },
+            resultados: historialData.metadata.resultados,
+            metadata: historialData.metadata
+          };
+        }
+      }
+    }
+  }, [location.state]);
 
   const cargarParadas = async () => {
     console.log('Cargando paradas...');
@@ -364,6 +421,53 @@ export default function MapPageNew() {
         
         setResultados(result.data);
         
+        // Guardar en historial si hay recomendaciones
+        if (result.data.recomendaciones && result.data.recomendaciones.length > 0 && user) {
+          try {
+            const primeraRecomendacion = result.data.recomendaciones[0];
+            const primeraRuta = primeraRecomendacion.segmentos?.[0]?.ruta;
+            
+            // Guardar con la alternativa seleccionada (inicialmente 0, la primera)
+            const historialGuardado = await historialService.guardarBusqueda({
+              ruta: result.data.mensaje || 'Búsqueda de ruta',
+              numero_ruta: primeraRuta?.numero_ruta || null,
+              parada: primeraRuta?.nombre || null,
+              latitud_origen: origenSeleccionado.lat,
+              longitud_origen: origenSeleccionado.lng,
+              latitud_destino: destinoSeleccionado.lat,
+              longitud_destino: destinoSeleccionado.lng,
+              tipo_busqueda: 'recomendacion',
+              metadata: {
+                origenNombre: origenSeleccionado.nombre,
+                destinoNombre: destinoSeleccionado.nombre,
+                numRutasEncontradas: result.data.recomendaciones?.length || 0,
+                rutaSeleccionadaIndice: 0, // Inicialmente la primera alternativa
+                resultados: result.data
+              }
+            });
+            
+            // Guardar referencia para poder actualizar cuando cambie la alternativa
+            if (historialGuardado.success && historialGuardado.data?.id) {
+              ultimaBusquedaRef.current = {
+                id: historialGuardado.data.id,
+                origen: origenSeleccionado,
+                destino: destinoSeleccionado,
+                resultados: result.data,
+                metadata: {
+                  origenNombre: origenSeleccionado.nombre,
+                  destinoNombre: destinoSeleccionado.nombre,
+                  numRutasEncontradas: result.data.recomendaciones?.length || 0,
+                  rutaSeleccionadaIndice: 0,
+                  resultados: result.data
+                }
+              };
+            }
+          } catch (historialError) {
+            console.error('Error al guardar en historial:', historialError);
+            // No mostrar error al usuario, solo log
+          }
+        }
+        
         if (result.data.recomendaciones && result.data.recomendaciones.length === 0) {
           alert(result.data.mensaje + '\n\n' + (result.data.sugerencia || ''));
         }
@@ -388,12 +492,27 @@ export default function MapPageNew() {
     setDestinoSeleccionado(null);
     setResultados(null);
     setRutaSeleccionada(0);
+    ultimaBusquedaRef.current = null; // Limpiar referencia al limpiar búsqueda
   };
 
   const verRutaEnMapa = (index) => {
     setRutaSeleccionada(index);
     // Scroll suave al mapa
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Actualizar historial con la nueva alternativa seleccionada
+    if (ultimaBusquedaRef.current && ultimaBusquedaRef.current.id && user && resultados) {
+      // Actualizar metadata con la nueva alternativa seleccionada
+      const metadataActualizado = {
+        ...ultimaBusquedaRef.current.metadata,
+        rutaSeleccionadaIndice: index
+      };
+      
+      historialService.actualizarBusqueda(ultimaBusquedaRef.current.id, metadataActualizado)
+        .catch(err => {
+          console.error('Error al actualizar historial con alternativa seleccionada:', err);
+        });
+    }
   };
 
   return (
