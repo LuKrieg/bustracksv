@@ -130,10 +130,7 @@ export default function DashboardPage() {
         return fechaB - fechaA; // Descendente
       });
       
-      // Eliminar los primeros 7 datos (datos fijados)
-      historialOrdenado = historialOrdenado.slice(7);
-      
-      // Limitar a 10 resultados
+      // Limitar a 10 resultados más recientes
       historialOrdenado = historialOrdenado.slice(0, 10);
       
       setHistorial(historialOrdenado);
