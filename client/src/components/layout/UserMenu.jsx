@@ -1,11 +1,17 @@
 import { Menu, Transition } from '@headlessui/react';
-import { Fragment } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const UserMenu = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [fotoPerfil, setFotoPerfil] = useState(user?.foto_perfil);
+
+  // Actualizar foto cuando cambie el usuario
+  useEffect(() => {
+    setFotoPerfil(user?.foto_perfil);
+  }, [user?.foto_perfil]);
 
   const handlePerfilClick = () => {
     navigate('/perfil');
@@ -15,15 +21,16 @@ const UserMenu = () => {
     <Menu as="div" className="relative inline-block text-left">
       <div>
         <Menu.Button className="flex items-center space-x-3 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors duration-200">
-          <div className="w-10 h-10 bg-accent-blue rounded-full flex items-center justify-center overflow-hidden">
-            {user?.foto_perfil ? (
+          <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-purple-500 rounded-full flex items-center justify-center overflow-hidden border-2 border-white/20">
+            {fotoPerfil ? (
               <img 
-                src={user.foto_perfil} 
+                src={fotoPerfil} 
                 alt="Foto de perfil" 
                 className="w-full h-full object-cover"
+                key={fotoPerfil}
               />
             ) : (
-              <span className="text-text-primary text-lg font-medium">
+              <span className="text-white text-lg font-bold">
                 {user?.usuario?.charAt(0).toUpperCase()}
               </span>
             )}

@@ -5,6 +5,40 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { pool, testConnection } from "./db.js";
 
+// Para Node.js < 18, usar node-fetch si es necesario
+let fetch;
+if (typeof globalThis.fetch !== 'undefined') {
+  fetch = globalThis.fetch;
+} else {
+  try {
+    fetch = require('node-fetch');
+  } catch (e) {
+    // Si node-fetch no está disponible, usar una alternativa básica
+    const https = require('https');
+    const http = require('http');
+    fetch = async (url, options) => {
+      return new Promise((resolve, reject) => {
+        const lib = url.startsWith('https') ? https : http;
+        const req = lib.get(url, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => {
+            try {
+              resolve({
+                json: () => Promise.resolve(JSON.parse(data)),
+                ok: res.statusCode >= 200 && res.statusCode < 300
+              });
+            } catch (e) {
+              reject(e);
+            }
+          });
+        });
+        req.on('error', reject);
+      });
+    };
+  }
+}
+
 // Configuración de variables de entorno
 dotenv.config();
 
@@ -44,7 +78,7 @@ app.post("/register", async (req, res) => {
 
   try {
     console.log('🔄 Intentando registrar usuario:', { usuario, email });
-    
+
     // Validar datos requeridos
     if (!usuario || !password) {
       console.log('❌ Datos requeridos faltantes');
@@ -57,7 +91,7 @@ app.post("/register", async (req, res) => {
       "SELECT id FROM usuarios WHERE usuario = $1 OR email = $2",
       [usuario, email]
     );
-    
+
     if (existingUser.rows.length > 0) {
       console.log('❌ Usuario o email ya existe');
       return res.status(409).json({ message: "El usuario o email ya existe" });
@@ -66,7 +100,7 @@ app.post("/register", async (req, res) => {
     // Hashear password y crear usuario
     console.log('🔐 Hasheando contraseña...');
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     console.log('💾 Insertando usuario en la base de datos...');
     const result = await pool.query(
       "INSERT INTO usuarios (usuario, password, email, nombre_completo, telefono) VALUES ($1, $2, $3, $4, $5) RETURNING id",
@@ -74,13 +108,13 @@ app.post("/register", async (req, res) => {
     );
 
     console.log('✅ Usuario registrado exitosamente con ID:', result.rows[0].id);
-    res.status(201).json({ 
+    res.status(201).json({
       message: "Usuario registrado con éxito",
       id: result.rows[0].id
     });
   } catch (err) {
     console.error("❌ Error al registrar usuario:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Error al registrar usuario",
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -161,14 +195,14 @@ app.get("/validate", authenticateToken, async (req, res) => {
 app.get("/perfil", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, usuario, email, nombre_completo, telefono, fecha_creacion, ultimo_acceso FROM usuarios WHERE id = $1",
+      "SELECT id, usuario, email, nombre_completo, telefono, foto_perfil, fecha_creacion, ultimo_acceso FROM usuarios WHERE id = $1",
       [req.user.id]
     );
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Error al obtener perfil:", err);
@@ -178,8 +212,8 @@ app.get("/perfil", authenticateToken, async (req, res) => {
 
 // Actualizar perfil del usuario autenticado (SIMPLIFICADO)
 app.put("/perfil", authenticateToken, async (req, res) => {
-  const { usuario, nombre_completo, email, telefono } = req.body;
-  
+  const { usuario, nombre_completo, email, telefono, foto_perfil } = req.body;
+
   try {
     // Validar que el usuario no esté en uso por otro usuario
     if (usuario) {
@@ -187,80 +221,86 @@ app.put("/perfil", authenticateToken, async (req, res) => {
         "SELECT id FROM usuarios WHERE usuario = $1 AND id != $2",
         [usuario, req.user.id]
       );
-      
+
       if (existingUsuario.rows.length > 0) {
         return res.status(409).json({ message: "El nombre de usuario ya está en uso" });
       }
     }
-    
+
     // Validar que el email no esté en uso por otro usuario
     if (email) {
       const existingUser = await pool.query(
         "SELECT id FROM usuarios WHERE email = $1 AND id != $2",
         [email, req.user.id]
       );
-      
+
       if (existingUser.rows.length > 0) {
         return res.status(409).json({ message: "El email ya está en uso por otro usuario" });
       }
     }
-    
+
     // Construir la consulta de actualización dinámicamente
     const updates = [];
     const values = [];
     let paramCount = 1;
-    
+
     if (usuario !== undefined) {
       updates.push(`usuario = $${paramCount}`);
       values.push(usuario);
       paramCount++;
     }
-    
+
     if (nombre_completo !== undefined) {
       updates.push(`nombre_completo = $${paramCount}`);
       values.push(nombre_completo);
       paramCount++;
     }
-    
+
     if (email !== undefined) {
       updates.push(`email = $${paramCount}`);
       values.push(email);
       paramCount++;
     }
-    
+
     if (telefono !== undefined) {
       updates.push(`telefono = $${paramCount}`);
       values.push(telefono);
       paramCount++;
     }
-    
+
+    if (foto_perfil !== undefined) {
+      updates.push(`foto_perfil = $${paramCount}`);
+      values.push(foto_perfil);
+      paramCount++;
+    }
+
     if (updates.length === 0) {
       return res.status(400).json({ message: "No hay campos para actualizar" });
     }
-    
+
     // Agregar el ID del usuario al final
     values.push(req.user.id);
-    
+
     const query = `
       UPDATE usuarios 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, usuario, email, nombre_completo, telefono
+      RETURNING id, usuario, email, nombre_completo, telefono, foto_perfil
     `;
-    
+
     const result = await pool.query(query, values);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    
+
     res.json({
       message: "Perfil actualizado exitosamente",
       usuario: result.rows[0]
     });
   } catch (err) {
     console.error("Error al actualizar perfil:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Error al actualizar perfil",
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -270,41 +310,41 @@ app.put("/perfil", authenticateToken, async (req, res) => {
 // Cambiar contraseña
 app.put("/perfil/password", authenticateToken, async (req, res) => {
   const { password_actual, password_nueva } = req.body;
-  
+
   if (!password_actual || !password_nueva) {
     return res.status(400).json({ message: "Se requiere la contraseña actual y la nueva" });
   }
-  
+
   if (password_nueva.length < 6) {
     return res.status(400).json({ message: "La nueva contraseña debe tener al menos 6 caracteres" });
   }
-  
+
   try {
     // Verificar contraseña actual
     const userResult = await pool.query(
       "SELECT password FROM usuarios WHERE id = $1",
       [req.user.id]
     );
-    
+
     if (userResult.rows.length === 0) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    
+
     const validPassword = await bcrypt.compare(password_actual, userResult.rows[0].password);
-    
+
     if (!validPassword) {
       return res.status(401).json({ message: "Contraseña actual incorrecta" });
     }
-    
+
     // Hashear nueva contraseña
     const hashedPassword = await bcrypt.hash(password_nueva, 10);
-    
+
     // Actualizar contraseña
     await pool.query(
       "UPDATE usuarios SET password = $1 WHERE id = $2",
       [hashedPassword, req.user.id]
     );
-    
+
     res.json({ message: "Contraseña actualizada exitosamente" });
   } catch (err) {
     console.error("Error al cambiar contraseña:", err);
@@ -325,7 +365,7 @@ app.get("/api/rutas", async (req, res) => {
       WHERE activa = 1
       ORDER BY numero_ruta
     `);
-    
+
     res.json(result.rows);
   } catch (err) {
     console.error("Error al obtener rutas:", err);
@@ -336,7 +376,7 @@ app.get("/api/rutas", async (req, res) => {
 // Obtener paradas de una ruta específica (ordenadas)
 app.get("/api/rutas/:id/paradas", async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     const result = await pool.query(`
       SELECT 
@@ -356,7 +396,7 @@ app.get("/api/rutas/:id/paradas", async (req, res) => {
       WHERE pr.id_ruta = $1 AND p.activa = 1
       ORDER BY pr.orden ASC
     `, [id]);
-    
+
     res.json(result.rows.map(p => ({
       ...p,
       latitud: parseFloat(p.latitud),
@@ -378,7 +418,7 @@ app.get("/api/paradas", async (req, res) => {
       WHERE activa = 1
       ORDER BY nombre
     `);
-    
+
     res.json(result.rows);
   } catch (err) {
     console.error("Error al obtener paradas:", err);
@@ -389,18 +429,18 @@ app.get("/api/paradas", async (req, res) => {
 // Buscar paradas cercanas a una ubicación
 app.get("/api/paradas-cercanas", async (req, res) => {
   const { lat, lng, radio = 500, limite = 10 } = req.query;
-  
+
   if (!lat || !lng) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: "Se requieren parámetros lat y lng" 
+      message: "Se requieren parámetros lat y lng"
     });
   }
-  
+
   try {
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
-    
+
     // Obtener todas las paradas activas
     const result = await pool.query(`
       SELECT id, codigo, nombre, descripcion, direccion, latitud, longitud, zona, tipo
@@ -408,20 +448,20 @@ app.get("/api/paradas-cercanas", async (req, res) => {
       WHERE activa = 1
       ORDER BY nombre
     `);
-    
+
     // Calcular distancia y filtrar
     const paradasConDistancia = result.rows
       .map(parada => {
         const R = 6371000; // Radio de la Tierra en metros
         const dLat = (parseFloat(parada.latitud) - latNum) * Math.PI / 180;
         const dLon = (parseFloat(parada.longitud) - lngNum) * Math.PI / 180;
-        const a = 
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
           Math.cos(latNum * Math.PI / 180) * Math.cos(parseFloat(parada.latitud) * Math.PI / 180) *
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distancia = R * c;
-        
+
         return {
           ...parada,
           distancia_metros: Math.round(distancia),
@@ -432,7 +472,7 @@ app.get("/api/paradas-cercanas", async (req, res) => {
       .filter(p => p.distancia_metros <= parseInt(radio))
       .sort((a, b) => a.distancia_metros - b.distancia_metros)
       .slice(0, parseInt(limite));
-    
+
     res.json({
       success: true,
       ubicacion: { lat: latNum, lng: lngNum },
@@ -453,43 +493,43 @@ app.get("/api/paradas-cercanas", async (req, res) => {
 // Buscar rutas cercanas a una ubicación
 app.get("/api/rutas-cercanas", async (req, res) => {
   const { lat, lng, radio = 500, limite = 10 } = req.query;
-  
+
   if (!lat || !lng) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: "Se requieren parámetros lat y lng" 
+      message: "Se requieren parámetros lat y lng"
     });
   }
-  
+
   try {
     // Primero buscar paradas cercanas
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
-    
+
     const paradasResult = await pool.query(`
       SELECT id, nombre, latitud, longitud
       FROM paradas
       WHERE activa = 1
     `);
-    
+
     // Filtrar paradas cercanas
     const paradasCercanas = paradasResult.rows
       .map(parada => {
         const R = 6371000;
         const dLat = (parseFloat(parada.latitud) - latNum) * Math.PI / 180;
         const dLon = (parseFloat(parada.longitud) - lngNum) * Math.PI / 180;
-        const a = 
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
           Math.cos(latNum * Math.PI / 180) * Math.cos(parseFloat(parada.latitud) * Math.PI / 180) *
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distancia = R * c;
-        
+
         return { ...parada, distancia_metros: Math.round(distancia) };
       })
       .filter(p => p.distancia_metros <= parseInt(radio))
       .map(p => p.id);
-    
+
     if (paradasCercanas.length === 0) {
       return res.json({
         success: true,
@@ -497,7 +537,7 @@ app.get("/api/rutas-cercanas", async (req, res) => {
         rutas: []
       });
     }
-    
+
     // Buscar rutas que pasan por esas paradas
     const placeholders = paradasCercanas.map(() => '?').join(',');
     const rutasResult = await pool.query(`
@@ -507,7 +547,7 @@ app.get("/api/rutas-cercanas", async (req, res) => {
       WHERE r.activa = 1 AND pr.id_parada IN (${placeholders})
       LIMIT ?
     `, [...paradasCercanas, parseInt(limite)]);
-    
+
     res.json({
       success: true,
       ubicacion: { lat: latNum, lng: lngNum },
@@ -526,41 +566,186 @@ app.get("/api/rutas-cercanas", async (req, res) => {
   }
 });
 
+// ===============================
+// 🔹 FUNCIONES AUXILIARES PARA GEOMETRÍA
+// ===============================
+
+// Función para obtener geometría de caminata usando OSRM
+async function obtenerGeometriaCaminata(lat1, lng1, lat2, lng2) {
+  try {
+    const coord1 = `${lng1},${lat1}`;
+    const coord2 = `${lng2},${lat2}`;
+    const url = `https://router.project-osrm.org/route/v1/walking/${coord1};${coord2}?overview=full&geometries=geojson`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      // Convertir de [lng, lat] a [lat, lng] para Leaflet
+      return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+    }
+    // Fallback a línea recta
+    return [[lat1, lng1], [lat2, lng2]];
+  } catch (error) {
+    console.error('Error obteniendo geometría de caminata:', error);
+    // Fallback a línea recta
+    return [[lat1, lng1], [lat2, lng2]];
+  }
+}
+
+// Función para obtener geometría de ruta de bus usando OSRM
+async function obtenerGeometriaBus(waypoints) {
+  if (waypoints.length < 2) return waypoints;
+
+  try {
+    // Simplificar si hay demasiados puntos
+    let puntosParaOSRM = waypoints;
+    if (waypoints.length > 25) {
+      puntosParaOSRM = waypoints.filter((_, idx) => idx % Math.ceil(waypoints.length / 25) === 0);
+      if (puntosParaOSRM[0] !== waypoints[0]) puntosParaOSRM.unshift(waypoints[0]);
+      if (puntosParaOSRM[puntosParaOSRM.length - 1] !== waypoints[waypoints.length - 1]) {
+        puntosParaOSRM.push(waypoints[waypoints.length - 1]);
+      }
+    }
+
+    const coordinates = puntosParaOSRM.map(p => `${p[1]},${p[0]}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      // Convertir de [lng, lat] a [lat, lng] para Leaflet
+      return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+    }
+    // Fallback a waypoints originales
+    return waypoints;
+  } catch (error) {
+    console.error('Error obteniendo geometría de bus:', error);
+    return waypoints;
+  }
+}
+
+// Función para calcular geometría completa de una recomendación
+async function calcularGeometriaCompleta(recomendacion, latInicio, lngInicio, latDestino, lngDestino) {
+  const walkingSegments = [];
+  const routeSegments = [];
+  const transitionPoints = [];
+
+  // 1. Caminata inicial: Origen -> Primera Parada
+  if (recomendacion.segmentos && recomendacion.segmentos.length > 0) {
+    const primeraParada = recomendacion.segmentos[0].paradaOrigen;
+    if (primeraParada) {
+      const geometry = await obtenerGeometriaCaminata(
+        latInicio, lngInicio,
+        primeraParada.latitud, primeraParada.longitud
+      );
+      walkingSegments.push({ geometry, tipo: 'origen' });
+    }
+  }
+
+  // 2. Procesar segmentos de bus
+  const bluePalette = ['#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF'];
+
+  for (let i = 0; i < recomendacion.segmentos.length; i++) {
+    const segmento = recomendacion.segmentos[i];
+    const color = bluePalette[i % bluePalette.length];
+
+    // Construir waypoints del segmento
+    const waypoints = [];
+    if (segmento.paradaOrigen) {
+      waypoints.push([segmento.paradaOrigen.latitud, segmento.paradaOrigen.longitud]);
+    }
+    if (segmento.paradasIntermedias && segmento.paradasIntermedias.length > 0) {
+      segmento.paradasIntermedias.forEach(p => {
+        waypoints.push([p.latitud, p.longitud]);
+      });
+    }
+    if (segmento.paradaDestino) {
+      waypoints.push([segmento.paradaDestino.latitud, segmento.paradaDestino.longitud]);
+    }
+
+    // Obtener geometría del segmento
+    if (waypoints.length >= 2) {
+      const geometry = await obtenerGeometriaBus(waypoints);
+      routeSegments.push({ geometry, color });
+    }
+
+    // Agregar puntos de transición
+    if (segmento.paradaOrigen) {
+      transitionPoints.push({
+        ...segmento.paradaOrigen,
+        tipo: 'subida',
+        descripcion: `Sube a Ruta ${segmento.ruta?.numero_ruta}`,
+        color: '#10B981',
+        segmentoIdx: i
+      });
+    }
+    if (segmento.paradaDestino) {
+      transitionPoints.push({
+        ...segmento.paradaDestino,
+        tipo: 'bajada',
+        descripcion: `Baja de Ruta ${segmento.ruta?.numero_ruta}`,
+        color: '#EF4444',
+        segmentoIdx: i
+      });
+    }
+  }
+
+  // 3. Caminata final: Última Parada -> Destino
+  if (recomendacion.segmentos && recomendacion.segmentos.length > 0) {
+    const ultimoSegmento = recomendacion.segmentos[recomendacion.segmentos.length - 1];
+    if (ultimoSegmento.paradaDestino) {
+      const geometry = await obtenerGeometriaCaminata(
+        ultimoSegmento.paradaDestino.latitud, ultimoSegmento.paradaDestino.longitud,
+        latDestino, lngDestino
+      );
+      walkingSegments.push({ geometry, tipo: 'destino' });
+    }
+  }
+
+  return {
+    walkingSegments,
+    routeSegments,
+    transitionPoints
+  };
+}
+
 // Recomendar ruta entre dos puntos (endpoint principal con transbordos)
 app.post("/api/recomendar-ruta", async (req, res) => {
   const { inicioLat, inicioLng, destinoLat, destinoLng, radio = 1500 } = req.body; // Radio aumentado a 1.5km
-  
+
   if (!inicioLat || !inicioLng || !destinoLat || !destinoLng) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: "Se requieren parámetros: inicioLat, inicioLng, destinoLat, destinoLng" 
+      message: "Se requieren parámetros: inicioLat, inicioLng, destinoLat, destinoLng"
     });
   }
-  
+
   try {
     console.log('🔍 Buscando ruta óptima entre:', { inicioLat, inicioLng, destinoLat, destinoLng });
-    
+
     const latInicio = parseFloat(inicioLat);
     const lngInicio = parseFloat(inicioLng);
     const latDestino = parseFloat(destinoLat);
     const lngDestino = parseFloat(destinoLng);
-    
+
     // Función auxiliar para calcular distancia
     const calcularDistancia = (lat1, lng1, lat2, lng2) => {
       const R = 6371000; // metros
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lng2 - lng1) * Math.PI / 180;
-      const a = 
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     };
-    
+
     // 1. Buscar paradas cercanas al origen
     const todasParadas = await pool.query("SELECT * FROM paradas WHERE activa = 1");
-    
+
     const paradasOrigen = todasParadas.rows
       .map(p => ({
         ...p,
@@ -569,7 +754,7 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       .filter(p => p.distancia <= radio)
       .sort((a, b) => a.distancia - b.distancia)
       .slice(0, 10);
-    
+
     // 2. Buscar paradas cercanas al destino
     const paradasDestino = todasParadas.rows
       .map(p => ({
@@ -579,7 +764,7 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       .filter(p => p.distancia <= radio)
       .sort((a, b) => a.distancia - b.distancia)
       .slice(0, 10);
-    
+
     if (paradasOrigen.length === 0 || paradasDestino.length === 0) {
       // Sugerir paradas hub más cercanas
       const paradasHub = await pool.query(`
@@ -597,17 +782,17 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         ORDER BY prioridad DESC, num_rutas DESC
         LIMIT 5
       `);
-      
+
       const sugerenciasOrigen = paradasHub.rows.map(p => ({
         ...p,
         distancia: calcularDistancia(latInicio, lngInicio, parseFloat(p.latitud), parseFloat(p.longitud))
       })).sort((a, b) => a.distancia - b.distancia).slice(0, 3);
-      
+
       const sugerenciasDestino = paradasHub.rows.map(p => ({
         ...p,
         distancia: calcularDistancia(latDestino, lngDestino, parseFloat(p.latitud), parseFloat(p.longitud))
       })).sort((a, b) => a.distancia - b.distancia).slice(0, 3);
-      
+
       return res.json({
         exito: false,
         mensaje: "No se encontraron paradas cercanas. Intenta con estas paradas populares:",
@@ -620,11 +805,11 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         recomendaciones: []
       });
     }
-    
+
     // 3. Buscar rutas directas
     const idsOrigen = paradasOrigen.map(p => p.id);
     const idsDestino = paradasDestino.map(p => p.id);
-    
+
     if (idsOrigen.length === 0 || idsDestino.length === 0) {
       return res.json({
         exito: false,
@@ -636,11 +821,11 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         recomendaciones: []
       });
     }
-    
+
     // Crear placeholders para la consulta
     const origenPlaceholders = idsOrigen.map(() => '?').join(',');
     const destinoPlaceholders = idsDestino.map(() => '?').join(',');
-    
+
     const rutasDirectas = await pool.query(`
       SELECT DISTINCT
         r.id, r.numero_ruta, r.nombre, r.empresa, r.tipo, r.tarifa, r.color,
@@ -668,7 +853,7 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       ORDER BY (pr2.tiempo_estimado_minutos - pr1.tiempo_estimado_minutos) ASC
       LIMIT 5
     `, [...idsOrigen, ...idsDestino]);
-    
+
     // Procesar rutas directas
     const recomendaciones = [];
     for (const ruta of rutasDirectas.rows) {
@@ -679,15 +864,15 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         WHERE pr.id_ruta = $1 AND pr.orden >= $2 AND pr.orden <= $3
         ORDER BY pr.orden
       `, [ruta.id, ruta.orden_origen, ruta.orden_destino]);
-      
+
       // Calcular distancias de caminata
       const distanciaCaminataOrigen = calcularDistancia(
-        latInicio, 
-        lngInicio, 
-        parseFloat(ruta.parada_origen_lat), 
+        latInicio,
+        lngInicio,
+        parseFloat(ruta.parada_origen_lat),
         parseFloat(ruta.parada_origen_lng)
       );
-      
+
       const distanciaCaminataDestino = calcularDistancia(
         parseFloat(ruta.parada_destino_lat),
         parseFloat(ruta.parada_destino_lng),
@@ -740,13 +925,13 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         numParadas: paradasIntermedias.rows.length
       });
     }
-    
+
     // 4. Buscar rutas con 1 transbordo (SIEMPRE buscar opciones)
     if (recomendaciones.length < 15) {
       console.log('🔍 Buscando rutas con 1 transbordo...');
       console.log(`   Paradas origen encontradas: ${paradasOrigen.length}`);
       console.log(`   Paradas destino encontradas: ${paradasDestino.length}`);
-      
+
       // Obtener rutas desde el origen
       const rutasDesdeOrigen = await pool.query(`
         SELECT DISTINCT
@@ -768,7 +953,7 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         JOIN paradas p ON pr.id_parada = p.id
         WHERE r.activa = 1 AND p.activa = 1
       `);
-      
+
       // Agrupar por ruta
       const rutasPorId = {};
       for (const row of rutasDesdeOrigen.rows) {
@@ -793,76 +978,76 @@ app.post("/api/recomendar-ruta", async (req, res) => {
           tiempo_estimado_minutos: row.tiempo_estimado_minutos
         });
       }
-      
+
       // Ordenar paradas por orden
       for (const rutaId in rutasPorId) {
         rutasPorId[rutaId].paradas.sort((a, b) => a.orden - b.orden);
       }
-      
+
       console.log(`   Total rutas en el sistema: ${Object.keys(rutasPorId).length}`);
       console.log(`   IDs paradas origen: ${idsOrigen.join(', ')}`);
       console.log(`   IDs paradas destino: ${idsDestino.join(', ')}`);
-      
+
       const transbordos = [];
-      
+
       // Buscar combinaciones de 2 rutas
       for (const paradaOrigenId of idsOrigen) {
         // Rutas que pasan por el origen
-        const ruta1Options = Object.values(rutasPorId).filter(r => 
+        const ruta1Options = Object.values(rutasPorId).filter(r =>
           r.paradas.some(p => p.id === paradaOrigenId)
         );
-        
+
         console.log(`   Parada origen ${paradaOrigenId}: ${ruta1Options.length} rutas disponibles`);
-        
+
         for (const ruta1 of ruta1Options) {
           const indexOrigen = ruta1.paradas.findIndex(p => p.id === paradaOrigenId);
           if (indexOrigen === -1) continue;
-          
+
           // Paradas posteriores en la ruta 1 (posibles transbordos)
           const paradasTransbordo = ruta1.paradas.slice(indexOrigen + 1);
-          
+
           for (const paradaTransbordo of paradasTransbordo) {
             // Buscar rutas que pasan por la parada de transbordo y llegan al destino
             for (const paradaDestinoId of idsDestino) {
-              const ruta2Options = Object.values(rutasPorId).filter(r => 
+              const ruta2Options = Object.values(rutasPorId).filter(r =>
                 r.id !== ruta1.id && // Diferente ruta
                 r.paradas.some(p => p.id === paradaTransbordo.id) &&
                 r.paradas.some(p => p.id === paradaDestinoId)
               );
-              
+
               for (const ruta2 of ruta2Options) {
                 const indexTransbordo = ruta2.paradas.findIndex(p => p.id === paradaTransbordo.id);
                 const indexDestino = ruta2.paradas.findIndex(p => p.id === paradaDestinoId);
-                
+
                 if (indexTransbordo !== -1 && indexDestino !== -1 && indexTransbordo < indexDestino) {
                   const paradaOrigen = ruta1.paradas[indexOrigen];
                   const paradaDestino = ruta2.paradas[indexDestino];
-                  
+
                   // Calcular tiempos, manejando casos null
                   const tiempoOrigenMin = paradaOrigen.tiempo_estimado_minutos || 0;
                   const tiempoTransbordoMin = paradaTransbordo.tiempo_estimado_minutos || (tiempoOrigenMin + 15);
                   const tiempoDestinoMin = paradaDestino.tiempo_estimado_minutos || (tiempoTransbordoMin + 15);
-                  
+
                   const tiempo1 = Math.max(tiempoTransbordoMin - tiempoOrigenMin, 5);
                   const tiempo2 = Math.max(tiempoDestinoMin - tiempoTransbordoMin, 5);
                   const tiempoTotal = tiempo1 + tiempo2 + 5; // 5 min de espera
-                  
+
                   const distanciaCaminataOrigen = calcularDistancia(
-                    latInicio, 
-                    lngInicio, 
+                    latInicio,
+                    lngInicio,
                     paradaOrigen.latitud,
                     paradaOrigen.longitud
                   );
-                  
+
                   const distanciaCaminataDestino = calcularDistancia(
                     paradaDestino.latitud,
                     paradaDestino.longitud,
                     latDestino,
                     lngDestino
                   );
-                  
+
                   console.log(`   ✅ Transbordo encontrado: Ruta ${ruta1.numero_ruta} → Ruta ${ruta2.numero_ruta}`);
-                  
+
                   transbordos.push({
                     tipo: 'transbordo',
                     transbordos: 1,
@@ -931,8 +1116,8 @@ app.post("/api/recomendar-ruta", async (req, res) => {
                     distanciaLineaRecta: calcularDistancia(latInicio, lngInicio, latDestino, lngDestino) / 1000,
                     distanciaCaminataOrigenMetros: distanciaCaminataOrigen,
                     distanciaCaminataDestinoMetros: distanciaCaminataDestino,
-                    numParadas: (ruta1.paradas.slice(indexOrigen, ruta1.paradas.findIndex(p => p.id === paradaTransbordo.id) + 1).length + 
-                                ruta2.paradas.slice(indexTransbordo, indexDestino + 1).length)
+                    numParadas: (ruta1.paradas.slice(indexOrigen, ruta1.paradas.findIndex(p => p.id === paradaTransbordo.id) + 1).length +
+                      ruta2.paradas.slice(indexTransbordo, indexDestino + 1).length)
                   });
                 }
               }
@@ -940,21 +1125,21 @@ app.post("/api/recomendar-ruta", async (req, res) => {
           }
         }
       }
-      
+
       // Ordenar por tiempo y tomar las mejores 10
       transbordos.sort((a, b) => a.tiempoEstimadoMinutos - b.tiempoEstimadoMinutos);
       recomendaciones.push(...transbordos.slice(0, 10));
-      
+
       console.log(`✅ Encontradas ${transbordos.length} rutas con 1 transbordo`);
     }
-    
+
     // 5. Buscar rutas con 2 transbordos (3 buses) - SIEMPRE buscar más opciones
     if (recomendaciones.length < 10) {
       console.log('🔍 Buscando rutas con 2 transbordos (3 buses)...');
-      
+
       const transbordos2 = [];
       const rutasPorId = {}; // Reutilizar estructura
-      
+
       // Obtener todas las rutas con sus paradas
       const todasLasRutas = await pool.query(`
         SELECT DISTINCT
@@ -976,7 +1161,7 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         JOIN paradas p ON pr.id_parada = p.id
         WHERE r.activa = 1 AND p.activa = 1
       `);
-      
+
       // Agrupar por ruta
       for (const row of todasLasRutas.rows) {
         if (!rutasPorId[row.ruta_id]) {
@@ -1000,77 +1185,77 @@ app.post("/api/recomendar-ruta", async (req, res) => {
           tiempo_estimado_minutos: row.tiempo_estimado_minutos
         });
       }
-      
+
       // Ordenar paradas por orden
       for (const rutaId in rutasPorId) {
         rutasPorId[rutaId].paradas.sort((a, b) => a.orden - b.orden);
       }
-      
+
       // Buscar combinaciones de 3 rutas (limitado para evitar explosión combinatoria)
       let combinacionesProbadas = 0;
       const maxCombinaciones = 5000; // Límite aumentado para más opciones
-      
+
       for (const paradaOrigenId of idsOrigen.slice(0, 10)) { // Más paradas de origen
-        const ruta1Options = Object.values(rutasPorId).filter(r => 
+        const ruta1Options = Object.values(rutasPorId).filter(r =>
           r.paradas.some(p => p.id === paradaOrigenId)
         ).slice(0, 5); // Más rutas por parada
-        
+
         for (const ruta1 of ruta1Options) {
           const indexOrigen = ruta1.paradas.findIndex(p => p.id === paradaOrigenId);
           if (indexOrigen === -1) continue;
-          
+
           // Paradas posteriores en ruta 1 (primer transbordo)
           const paradasTransbordo1 = ruta1.paradas.slice(indexOrigen + 1, indexOrigen + 6); // Máximo 5 paradas
-          
+
           for (const paradaT1 of paradasTransbordo1) {
             // Buscar ruta 2 que pase por paradaT1
-            const ruta2Options = Object.values(rutasPorId).filter(r => 
+            const ruta2Options = Object.values(rutasPorId).filter(r =>
               r.id !== ruta1.id &&
               r.paradas.some(p => p.id === paradaT1.id)
             ).slice(0, 3);
-            
+
             for (const ruta2 of ruta2Options) {
               const indexT1 = ruta2.paradas.findIndex(p => p.id === paradaT1.id);
               if (indexT1 === -1) continue;
-              
+
               // Paradas posteriores en ruta 2 (segundo transbordo)
               const paradasTransbordo2 = ruta2.paradas.slice(indexT1 + 1, indexT1 + 6);
-              
+
               for (const paradaT2 of paradasTransbordo2) {
                 // Buscar ruta 3 que conecte paradaT2 con destino
                 for (const paradaDestinoId of idsDestino.slice(0, 5)) {
                   if (combinacionesProbadas++ > maxCombinaciones) break;
-                  
-                  const ruta3Options = Object.values(rutasPorId).filter(r => 
+
+                  const ruta3Options = Object.values(rutasPorId).filter(r =>
                     r.id !== ruta1.id && r.id !== ruta2.id &&
                     r.paradas.some(p => p.id === paradaT2.id) &&
                     r.paradas.some(p => p.id === paradaDestinoId)
                   ).slice(0, 2);
-                  
+
                   for (const ruta3 of ruta3Options) {
                     const indexT2 = ruta3.paradas.findIndex(p => p.id === paradaT2.id);
                     const indexDestino = ruta3.paradas.findIndex(p => p.id === paradaDestinoId);
-                    
+
                     if (indexT2 !== -1 && indexDestino !== -1 && indexT2 < indexDestino) {
                       const paradaOrigen = ruta1.paradas[indexOrigen];
                       const paradaDestino = ruta3.paradas[indexDestino];
-                      
+
                       // Calcular tiempos
                       const tiempo1 = Math.max((paradaT1.tiempo_estimado_minutos || 15) - (paradaOrigen.tiempo_estimado_minutos || 0), 5);
                       const tiempo2 = Math.max((paradaT2.tiempo_estimado_minutos || 15) - (paradaT1.tiempo_estimado_minutos || 0), 5);
                       const tiempo3 = Math.max((paradaDestino.tiempo_estimado_minutos || 15) - (paradaT2.tiempo_estimado_minutos || 0), 5);
                       const tiempoTotal = tiempo1 + tiempo2 + tiempo3 + 10; // 10 min de espera total
-                      
+
                       const distanciaCaminataOrigen = calcularDistancia(
                         latInicio, lngInicio,
                         paradaOrigen.latitud, paradaOrigen.longitud
                       );
-                      
+
                       const distanciaCaminataDestino = calcularDistancia(
                         paradaDestino.latitud, paradaDestino.longitud,
                         latDestino, lngDestino
                       );
-                      
+
                       transbordos2.push({
                         tipo: 'transbordo',
                         transbordos: 2,
@@ -1106,8 +1291,8 @@ app.post("/api/recomendar-ruta", async (req, res) => {
                         distanciaCaminataOrigenMetros: distanciaCaminataOrigen,
                         distanciaCaminataDestinoMetros: distanciaCaminataDestino,
                         numParadas: ruta1.paradas.slice(indexOrigen, ruta1.paradas.findIndex(p => p.id === paradaT1.id) + 1).length +
-                                   ruta2.paradas.slice(indexT1, ruta2.paradas.findIndex(p => p.id === paradaT2.id) + 1).length +
-                                   ruta3.paradas.slice(indexT2, indexDestino + 1).length
+                          ruta2.paradas.slice(indexT1, ruta2.paradas.findIndex(p => p.id === paradaT2.id) + 1).length +
+                          ruta3.paradas.slice(indexT2, indexDestino + 1).length
                       });
                     }
                   }
@@ -1122,14 +1307,14 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         }
         if (combinacionesProbadas > maxCombinaciones) break;
       }
-      
+
       // Ordenar por tiempo y tomar las mejores 5
       transbordos2.sort((a, b) => a.tiempoEstimadoMinutos - b.tiempoEstimadoMinutos);
       recomendaciones.push(...transbordos2.slice(0, 5));
-      
+
       console.log(`✅ Encontradas ${transbordos2.length} rutas con 2 transbordos (probadas ${combinacionesProbadas} combinaciones)`);
     }
-    
+
     // Ordenar todas las recomendaciones: primero por número de transbordos, luego por tiempo
     recomendaciones.sort((a, b) => {
       if (a.transbordos !== b.transbordos) {
@@ -1137,10 +1322,14 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       }
       return a.tiempoEstimadoMinutos - b.tiempoEstimadoMinutos; // Luego por tiempo
     });
-    
+
+
     const rutasDirectasCount = recomendaciones.filter(r => r.tipo === 'directa').length;
     const rutasTransbordoCount = recomendaciones.filter(r => r.tipo === 'transbordo').length;
-    
+
+    // NO calcular geometría en el backend - el frontend lo hace mejor y evita timeouts
+    // Simplemente devolver las recomendaciones tal cual
+
     // Si no se encontraron rutas, sugerir paradas hub cercanas
     if (recomendaciones.length === 0) {
       const paradasHub = await pool.query(`
@@ -1158,17 +1347,17 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         ORDER BY prioridad DESC, num_rutas DESC
         LIMIT 10
       `);
-      
+
       const sugerenciasOrigen = paradasHub.rows.map(p => ({
         ...p,
         distancia: calcularDistancia(latInicio, lngInicio, parseFloat(p.latitud), parseFloat(p.longitud))
       })).sort((a, b) => a.distancia - b.distancia).slice(0, 5);
-      
+
       const sugerenciasDestino = paradasHub.rows.map(p => ({
         ...p,
         distancia: calcularDistancia(latDestino, lngDestino, parseFloat(p.latitud), parseFloat(p.longitud))
       })).sort((a, b) => a.distancia - b.distancia).slice(0, 5);
-      
+
       return res.json({
         exito: false,
         mensaje: "No se encontraron rutas disponibles. Prueba con estas paradas cercanas con más conexiones:",
@@ -1176,20 +1365,20 @@ app.post("/api/recomendar-ruta", async (req, res) => {
         destino: { lat: latDestino, lng: lngDestino },
         paradasOrigen: paradasOrigen.map(p => ({ ...p, distancia_metros: Math.round(p.distancia) })),
         paradasDestino: paradasDestino.map(p => ({ ...p, distancia_metros: Math.round(p.distancia) })),
-        sugerenciasOrigen: sugerenciasOrigen.map(p => ({ 
-          ...p, 
+        sugerenciasOrigen: sugerenciasOrigen.map(p => ({
+          ...p,
           distancia_metros: Math.round(p.distancia),
           distancia_km: (p.distancia / 1000).toFixed(2)
         })),
-        sugerenciasDestino: sugerenciasDestino.map(p => ({ 
-          ...p, 
+        sugerenciasDestino: sugerenciasDestino.map(p => ({
+          ...p,
           distancia_metros: Math.round(p.distancia),
           distancia_km: (p.distancia / 1000).toFixed(2)
         })),
         recomendaciones: []
       });
     }
-    
+
     res.json({
       exito: true,
       mensaje: `Se encontraron ${recomendaciones.length} opciones`,
@@ -1197,12 +1386,12 @@ app.post("/api/recomendar-ruta", async (req, res) => {
       destino: { lat: latDestino, lng: lngDestino },
       paradasOrigen: paradasOrigen.map(p => ({ ...p, distancia_metros: Math.round(p.distancia) })),
       paradasDestino: paradasDestino.map(p => ({ ...p, distancia_metros: Math.round(p.distancia) })),
-      recomendaciones: recomendaciones.slice(0, 15), // Hasta 15 opciones (antes 10)
+      recomendaciones: recomendaciones.slice(0, 15), // Hasta 15 opciones con geometría
       estadisticas: {
         total_opciones: recomendaciones.length,
         rutas_directas: rutasDirectasCount,
         rutas_con_transbordo: rutasTransbordoCount,
-        tiempo_promedio_minutos: recomendaciones.length > 0 
+        tiempo_promedio_minutos: recomendaciones.length > 0
           ? Math.round(recomendaciones.reduce((sum, r) => sum + (r.tiempoEstimadoMinutos || 0), 0) / recomendaciones.length)
           : 0
       }
@@ -1220,33 +1409,33 @@ app.post("/api/recomendar-ruta", async (req, res) => {
 // Buscar rutas entre dos paradas (endpoint legacy - mantener por compatibilidad)
 app.post("/api/buscar-rutas", async (req, res) => {
   const { paradaOrigenId, paradaDestinoId } = req.body;
-  
+
   if (!paradaOrigenId || !paradaDestinoId) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: "Se requieren los IDs de origen y destino" 
+      message: "Se requieren los IDs de origen y destino"
     });
   }
-  
+
   try {
     // Obtener info de las paradas
     const paradaOrigen = await pool.query(
       "SELECT * FROM paradas WHERE id = $1",
       [paradaOrigenId]
     );
-    
+
     const paradaDestino = await pool.query(
       "SELECT * FROM paradas WHERE id = $1",
       [paradaDestinoId]
     );
-    
+
     if (paradaOrigen.rows.length === 0 || paradaDestino.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: "Paradas no encontradas"
       });
     }
-    
+
     // Buscar rutas directas (una sola ruta que conecte ambas paradas)
     const rutasDirectas = await pool.query(`
       SELECT DISTINCT
@@ -1279,23 +1468,23 @@ app.post("/api/buscar-rutas", async (req, res) => {
         AND pr1.orden < pr2.orden
       ORDER BY (pr2.tiempo_estimado_minutos - pr1.tiempo_estimado_minutos) ASC
     `, [paradaOrigenId, paradaDestinoId]);
-    
+
     // Calcular distancia en línea recta (fórmula de Haversine simplificada)
     const lat1 = parseFloat(paradaOrigen.rows[0].latitud);
     const lon1 = parseFloat(paradaOrigen.rows[0].longitud);
     const lat2 = parseFloat(paradaDestino.rows[0].latitud);
     const lon2 = parseFloat(paradaDestino.rows[0].longitud);
-    
+
     const R = 6371; // Radio de la Tierra en km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distanciaKm = R * c;
-    
+
     // Para cada ruta, obtener las paradas intermedias
     const rutasConParadas = [];
     for (const ruta of rutasDirectas.rows) {
@@ -1310,7 +1499,7 @@ app.post("/api/buscar-rutas", async (req, res) => {
           AND pr.orden <= $3
         ORDER BY pr.orden
       `, [ruta.id, ruta.orden_origen, ruta.orden_destino]);
-      
+
       rutasConParadas.push({
         ruta: {
           id: ruta.id,
@@ -1344,7 +1533,7 @@ app.post("/api/buscar-rutas", async (req, res) => {
         numeroParadas: paradasIntermedias.rows.length
       });
     }
-    
+
     res.json({
       success: true,
       origen: paradaOrigen.rows[0],
@@ -1353,7 +1542,7 @@ app.post("/api/buscar-rutas", async (req, res) => {
       rutasDisponibles: rutasConParadas,
       totalRutas: rutasConParadas.length
     });
-    
+
   } catch (err) {
     console.error("Error al buscar rutas:", err);
     res.status(500).json({
@@ -1370,16 +1559,48 @@ app.post("/api/buscar-rutas", async (req, res) => {
 
 // Guardar búsqueda en el historial
 app.post("/historial", authenticateToken, async (req, res) => {
-  const { ruta, numero_ruta, parada } = req.body;
-  
+  const {
+    ruta,
+    numero_ruta,
+    parada,
+    parada_destino,
+    latitud_origen,
+    longitud_origen,
+    latitud_destino,
+    longitud_destino
+  } = req.body;
+
+  // Guardar destino en metadata si está disponible
+  const metadata = parada_destino ? JSON.stringify({ parada_destino }) : '{}';
+
   try {
     const result = await pool.query(
-      `INSERT INTO historial_busquedas (id_usuario, ruta, numero_ruta, parada)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO historial_busquedas (
+        id_usuario, 
+        ruta, 
+        numero_ruta, 
+        parada, 
+        latitud_origen, 
+        longitud_origen, 
+        latitud_destino, 
+        longitud_destino,
+        metadata
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id, fecha_busqueda`,
-      [req.user.id, ruta || null, numero_ruta || null, parada || null]
+      [
+        req.user.id,
+        ruta || null,
+        numero_ruta || null,
+        parada || null,
+        latitud_origen || null,
+        longitud_origen || null,
+        latitud_destino || null,
+        longitud_destino || null,
+        metadata
+      ]
     );
-    
+
     res.status(201).json({
       message: "Búsqueda guardada en el historial",
       id: result.rows[0].id,
@@ -1394,18 +1615,46 @@ app.post("/historial", authenticateToken, async (req, res) => {
 // Obtener historial de búsquedas del usuario
 app.get("/historial", authenticateToken, async (req, res) => {
   try {
+    const limite = parseInt(req.query.limite) || 20;
     const result = await pool.query(
-      `SELECT id, ruta, numero_ruta, parada, fecha_busqueda
+      `SELECT 
+        id, 
+        ruta, 
+        numero_ruta, 
+        parada, 
+        fecha_busqueda,
+        latitud_origen,
+        longitud_origen,
+        latitud_destino,
+        longitud_destino,
+        metadata
        FROM historial_busquedas
        WHERE id_usuario = $1
        ORDER BY fecha_busqueda DESC
-       LIMIT 20`,
-      [req.user.id]
+       LIMIT $2`,
+      [req.user.id, limite]
     );
-    
+
+    // Parsear metadata para extraer parada_destino
+    const historial = result.rows.map(row => {
+      let parada_destino = null;
+      if (row.metadata) {
+        try {
+          const meta = typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata;
+          parada_destino = meta.parada_destino || null;
+        } catch (e) {
+          console.error('Error parsing metadata:', e);
+        }
+      }
+      return {
+        ...row,
+        parada_destino
+      };
+    });
+
     res.json({
-      historial: result.rows,
-      total: result.rows.length
+      historial: historial,
+      total: historial.length
     });
   } catch (err) {
     console.error("Error al obtener historial:", err);
@@ -1416,17 +1665,17 @@ app.get("/historial", authenticateToken, async (req, res) => {
 // Eliminar una búsqueda del historial
 app.delete("/historial/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     const result = await pool.query(
       "DELETE FROM historial_busquedas WHERE id = $1 AND id_usuario = $2 RETURNING id",
       [id, req.user.id]
     );
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Búsqueda no encontrada" });
     }
-    
+
     res.json({ message: "Búsqueda eliminada del historial" });
   } catch (err) {
     console.error("Error al eliminar del historial:", err);
@@ -1441,7 +1690,7 @@ app.delete("/historial", authenticateToken, async (req, res) => {
       "DELETE FROM historial_busquedas WHERE id_usuario = $1",
       [req.user.id]
     );
-    
+
     res.json({ message: "Historial limpiado exitosamente" });
   } catch (err) {
     console.error("Error al limpiar historial:", err);
@@ -1480,7 +1729,7 @@ const startServer = async () => {
     // Probar conexión a la base de datos antes de iniciar el servidor
     console.log('🔄 Probando conexión a la base de datos...');
     const dbConnected = await testConnection();
-    
+
     if (!dbConnected) {
       console.error('❌ No se pudo conectar a la base de datos.');
       process.exit(1);
