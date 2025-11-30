@@ -30,10 +30,10 @@ class HistorialService {
         }
       };
     }
-  },
+  }
 
   // Actualizar metadata de una búsqueda (para actualizar alternativa seleccionada)
-  actualizarBusqueda: async (id, metadata) => {
+  async actualizarBusqueda(id, metadata) {
     try {
       const response = await apiClient.put(`/historial/${id}`, { metadata });
       return {

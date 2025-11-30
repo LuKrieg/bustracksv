@@ -281,27 +281,42 @@ app.put("/perfil", authenticateToken, async (req, res) => {
     // Agregar el ID del usuario al final
     values.push(req.user.id);
 
-    const query = `
+    // Primero hacer el UPDATE
+    const updateQuery = `
       UPDATE usuarios 
       SET ${updates.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, usuario, email, nombre_completo, telefono, foto_perfil
     `;
 
-    const result = await pool.query(query, values);
+    try {
+      await pool.query(updateQuery, values);
+    } catch (updateErr) {
+      console.error("Error en UPDATE:", updateErr);
+      throw updateErr;
+    }
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+    // Luego obtener el usuario actualizado (más compatible con SQLite)
+    const selectQuery = `
+      SELECT id, usuario, email, nombre_completo, telefono, foto_perfil, fecha_creacion, ultimo_acceso 
+      FROM usuarios 
+      WHERE id = $1
+    `;
+
+    const selectResult = await pool.query(selectQuery, [req.user.id]);
+
+    if (selectResult.rows.length === 0) {
+      return res.status(404).json({ message: "Usuario no encontrado después de actualizar" });
     }
 
     res.json({
       message: "Perfil actualizado exitosamente",
-      usuario: result.rows[0]
+      usuario: selectResult.rows[0]
     });
   } catch (err) {
     console.error("Error al actualizar perfil:", err);
+    console.error("Stack:", err.stack);
     res.status(500).json({
-      message: "Error al actualizar perfil",
+      message: "Error al actualizar perfil: " + (err.message || "Error desconocido"),
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
