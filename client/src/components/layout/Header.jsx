@@ -11,7 +11,7 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-bg-primary px-8 relative z-20">
+    <header className="bg-[#0b0f1a] px-8 relative z-20">
       <div className="w-full px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
           {/* Logo */}
@@ -56,8 +56,8 @@ const Header = () => {
                   to="/"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/')
-                      ? 'text-accent-light-blue'
-                      : 'text-text-secondary hover:text-text-primary'
+                      ? 'text-[#7bc4f0]'
+                      : 'text-white hover:text-slate-300'
                   }`}
                 >
                   Explora
@@ -66,8 +66,8 @@ const Header = () => {
                   to="/features"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/features')
-                      ? 'text-accent-light-blue'
-                      : 'text-text-secondary hover:text-text-primary'
+                      ? 'text-[#7bc4f0]'
+                      : 'text-white hover:text-slate-300'
                   }`}
                 >
                   Características
@@ -76,8 +76,8 @@ const Header = () => {
                   to="/about"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/about')
-                      ? 'text-accent-light-blue'
-                      : 'text-text-secondary hover:text-text-primary'
+                      ? 'text-[#7bc4f0]'
+                      : 'text-white hover:text-slate-300'
                   }`}
                 >
                   Quienes somos
@@ -96,13 +96,13 @@ const Header = () => {
               <>
                 <Link
                   to="/login"
-                  className="text-lg text-text-secondary hover:text-text-primary transition-colors duration-200"
+                  className="text-lg text-white hover:text-slate-300 transition-colors duration-200"
                 >
                   Iniciar Sesión
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-accent-blue text-text-primary px-8 py-2 rounded-lg text-lg font-medium hover:bg-accent-light-blue transition-colors duration-200"
+                  className="bg-[#7bc4f0] text-white px-8 py-2 rounded-lg text-lg font-medium hover:bg-[#6ab3e0] transition-colors duration-200"
                 >
                   Empezar
                 </Link>

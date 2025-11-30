@@ -1,10 +1,14 @@
 import Header from "../../layout/Header";
 import { useState, useEffect } from "react";
 import historialService from "../../../services/historialService";
+import routeService from "../../../services/routeService";
 
 /* ---------- Tarjeta estilo mock ---------- */
-const StatCard = ({ title, iconSrc, value = 1 }) => (
-  <div className="rounded-[18px] bg-[#a9c9e8] text-[#0f2b4a] px-8 py-6 shadow-[0_8px_24px_rgba(0,0,0,0.15)]">
+const StatCard = ({ title, iconSrc, value = 0, onClick }) => (
+  <div
+    onClick={onClick}
+    className="rounded-[18px] bg-[#a9c9e8] text-[#0f2b4a] px-8 py-6 shadow-[0_8px_24px_rgba(0,0,0,0.15)] cursor-pointer hover:scale-105 transition-transform duration-200"
+  >
     <p className="text-[28px] font-extrabold tracking-tight mb-4">{title}</p>
 
     <div className="flex items-center">
@@ -18,36 +22,187 @@ const StatCard = ({ title, iconSrc, value = 1 }) => (
         {value}
       </span>
     </div>
+    <div className="mt-2 text-right text-sm font-semibold opacity-70">
+      Ver detalles →
+    </div>
   </div>
 );
 
+/* ---------- Modal de Detalles ---------- */
+const DetailsModal = ({ isOpen, onClose, title, data, type }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-[#1e263b] w-full max-w-4xl max-h-[80vh] rounded-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        {/* Header */}
+        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#151b2e]">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+            <span className="text-[#6aaee0]">Listado de {title}</span>
+            <span className="text-sm bg-white/10 px-3 py-1 rounded-full text-slate-300 font-normal">
+              Total: {data.length}
+            </span>
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {data.map((item, index) => (
+              <div key={item.id || index} className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                {type === 'rutas' || type === 'buses' ? (
+                  <>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="bg-[#6aaee0] text-[#0f2b4a] font-bold px-2 py-1 rounded text-sm">
+                        Ruta {item.numero_ruta}
+                      </span>
+                      <span className="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded">
+                        {item.tipo || 'Bus'}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-white mb-1 line-clamp-1">{item.nombre}</h3>
+                    <p className="text-sm text-slate-400 mb-2 line-clamp-2">{item.descripcion || 'Sin descripción'}</p>
+                    <div className="text-xs text-slate-500 flex justify-between mt-auto pt-2 border-t border-white/5">
+                      <span>{item.empresa || 'Empresa desconocida'}</span>
+                      <span className="text-[#6aaee0] font-bold">${item.tarifa || '0.25'}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded text-xs">
+                        {item.codigo || 'S/C'}
+                      </span>
+                      <span className="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded">
+                        {item.zona || 'General'}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-white mb-1 line-clamp-1">{item.nombre}</h3>
+                    <p className="text-sm text-slate-400 mb-1 line-clamp-1">{item.direccion || 'Sin dirección'}</p>
+                    {item.total_rutas > 0 && (
+                      <div className="text-xs text-[#6aaee0] mt-2">
+                        Conecta con {item.total_rutas} rutas
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {data.length === 0 && (
+            <div className="text-center py-10 text-slate-400">
+              No se encontraron datos para mostrar.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function DashboardPage() {
   const [historial, setHistorial] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingHistorial, setLoadingHistorial] = useState(true);
+
+  const [stats, setStats] = useState({
+    rutas: [],
+    paradas: [],
+    buses: [] // Usaremos rutas como proxy para buses por ahora
+  });
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState({ type: '', title: '', data: [] });
 
   useEffect(() => {
-    cargarHistorial();
+    cargarDatos();
   }, []);
 
-  const cargarHistorial = async () => {
-    setLoading(true);
-    const result = await historialService.obtenerHistorial(10); // Obtener últimas 10 búsquedas
-    if (result.success) {
-      setHistorial(result.data.historial);
+  const cargarDatos = async () => {
+    setLoadingHistorial(true);
+
+    try {
+      // Cargar Historial
+      const historialRes = await historialService.obtenerHistorial(10);
+      if (historialRes.success) {
+        setHistorial(historialRes.data.historial);
+      }
+
+      // Cargar Rutas y Paradas
+      const [rutasRes, paradasRes] = await Promise.all([
+        routeService.getRutas(),
+        routeService.getParadas()
+      ]);
+
+      const rutas = rutasRes.success ? rutasRes.data : [];
+      const paradas = paradasRes.success ? paradasRes.data : [];
+
+      setStats({
+        rutas: rutas,
+        paradas: paradas,
+        buses: rutas // Asumimos 1 bus por ruta como mínimo para visualización, o mostramos las rutas como "flota"
+      });
+
+    } catch (error) {
+      console.error("Error cargando datos del dashboard:", error);
+    } finally {
+      setLoadingHistorial(false);
     }
-    setLoading(false);
+  };
+
+  const openModal = (type) => {
+    let data = [];
+    let title = '';
+
+    switch (type) {
+      case 'buses':
+        data = stats.buses;
+        title = 'Buses (Rutas Activas)';
+        break;
+      case 'paradas':
+        data = stats.paradas;
+        title = 'Paradas';
+        break;
+      case 'rutas':
+        data = stats.rutas;
+        title = 'Rutas';
+        break;
+      default:
+        return;
+    }
+
+    setModalConfig({ type, title, data });
+    setModalOpen(true);
   };
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'N/A';
     const date = new Date(fecha);
-    return date.toLocaleDateString('es-SV', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    return date.toLocaleDateString('es-SV', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      timeZone: 'America/El_Salvador'
+    });
   };
 
   const formatearHora = (fecha) => {
     if (!fecha) return 'N/A';
     const date = new Date(fecha);
-    return date.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return date.toLocaleTimeString('es-SV', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'America/El_Salvador'
+    });
   };
 
   return (
@@ -64,9 +219,24 @@ export default function DashboardPage() {
           <div className="mx-auto max-w-[1100px]">
             <div className="rounded-[16px] bg-[#1e263b]/90 border border-white/10 px-10 py-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                <StatCard title="Buses"   iconSrc="/busDashboard.png" value={1} />
-                <StatCard title="Paradas" iconSrc="/Parada.png"       value={1} />
-                <StatCard title="Rutas"   iconSrc="/Ruta.png"         value={1} />
+                <StatCard
+                  title="Buses"
+                  iconSrc="/busDashboard.png"
+                  value={stats.buses.length}
+                  onClick={() => openModal('buses')}
+                />
+                <StatCard
+                  title="Paradas"
+                  iconSrc="/Parada.png"
+                  value={stats.paradas.length}
+                  onClick={() => openModal('paradas')}
+                />
+                <StatCard
+                  title="Rutas"
+                  iconSrc="/Ruta.png"
+                  value={stats.rutas.length}
+                  onClick={() => openModal('rutas')}
+                />
               </div>
             </div>
           </div>
@@ -75,7 +245,7 @@ export default function DashboardPage() {
         {/* ---------- Historial (igual al mock) ---------- */}
         <section className="mt-10 pb-16">
           <div className="mx-auto max-w-[1100px] rounded-xl bg-[#1f2740] border border-[#1f2740] px-4 pt-5 pb-6 relative">
-            
+
             {/* Píldora "Historial" EXACTA */}
             <div className="inline-flex items-center gap-4 rounded-[28px] px-6 py-3 bg-[#69AEE0] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] mb-6">
               <span className="text-[24px] font-extrabold leading-none">Historial</span>
@@ -85,7 +255,7 @@ export default function DashboardPage() {
 
             {/* Tarjeta azul clara con tabla redondeada */}
             <div className="relative z-[1] mx-auto max-w-[980px] rounded-[14px] overflow-hidden bg-[#77AEDD]">
-              {loading ? (
+              {loadingHistorial ? (
                 <div className="py-10 text-center text-[#0f2b4a]">
                   <p className="text-lg font-semibold">Cargando historial...</p>
                 </div>
@@ -122,6 +292,15 @@ export default function DashboardPage() {
           </div>
         </section>
       </main>
+
+      {/* Modal */}
+      <DetailsModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalConfig.title}
+        data={modalConfig.data}
+        type={modalConfig.type}
+      />
     </div>
   );
 }
