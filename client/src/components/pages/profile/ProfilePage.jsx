@@ -16,6 +16,8 @@ export default function ProfilePage() {
     email: '',
     telefono: '',
   });
+  const [fotoPerfil, setFotoPerfil] = useState(null);
+  const [fotoPreview, setFotoPreview] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Estados para cambio de contraseña
@@ -47,6 +49,7 @@ export default function ProfilePage() {
           email: result.data.email || '',
           telefono: result.data.telefono || '',
         });
+        setFotoPreview(result.data.foto_perfil || null);
       } else {
         setMessage({ type: 'error', text: 'Error al cargar perfil' });
       }
@@ -62,13 +65,47 @@ export default function ProfilePage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFotoChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validar que sea una imagen
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Por favor selecciona un archivo de imagen' });
+      return;
+    }
+
+    // Validar tamaño (máximo 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'La imagen debe ser menor a 2MB' });
+      return;
+    }
+
+    try {
+      // Convertir a base64
+      const base64 = await perfilService.convertirImagenABase64(file);
+      setFotoPerfil(base64);
+      setFotoPreview(base64);
+      setMessage({ type: 'success', text: 'Foto seleccionada. Guarda los cambios para aplicarla.' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    } catch (error) {
+      console.error('Error al procesar imagen:', error);
+      setMessage({ type: 'error', text: 'Error al procesar la imagen' });
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ type: '', text: '' });
 
     try {
-      const result = await perfilService.updatePerfil(formData);
+      const datosActualizados = { ...formData };
+      if (fotoPerfil) {
+        datosActualizados.foto_perfil = fotoPerfil;
+      }
+      
+      const result = await perfilService.updatePerfil(datosActualizados);
       if (result.success) {
         setMessage({ type: 'success', text: '¡Perfil actualizado exitosamente!' });
         const updatedProfile = result.data.usuario;
@@ -80,7 +117,13 @@ export default function ProfilePage() {
           usuario: updatedProfile.usuario,
           nombre_completo: updatedProfile.nombre_completo,
           email: updatedProfile.email,
+          foto_perfil: updatedProfile.foto_perfil,
         });
+        
+        // Limpiar foto temporal después de guardar
+        if (fotoPerfil) {
+          setFotoPerfil(null);
+        }
 
         setEditing(false);
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
@@ -199,6 +242,29 @@ export default function ProfilePage() {
               {!editing ? (
                 // Vista de lectura
                 <div className="space-y-4">
+                  {/* Foto de perfil */}
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="relative">
+                      {profile?.foto_perfil || fotoPreview ? (
+                        <img 
+                          src={profile?.foto_perfil || fotoPreview} 
+                          alt="Foto de perfil" 
+                          className="w-24 h-24 rounded-full object-cover border-4 border-sky-500/50"
+                        />
+                      ) : (
+                        <div className="w-24 h-24 rounded-full bg-sky-600/30 border-4 border-sky-500/50 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">{profile?.nombre_completo || profile?.usuario || 'Usuario'}</h2>
+                      <p className="text-sm text-slate-400">{profile?.email || ''}</p>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-400 mb-1">Usuario</label>
                     <div className="text-lg text-white font-semibold">{profile?.usuario || user?.usuario || 'N/A'}</div>
@@ -237,6 +303,54 @@ export default function ProfilePage() {
               ) : (
                 // Vista de edición
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Foto de perfil */}
+                  <div className="flex flex-col items-center mb-6">
+                    <div className="relative mb-4">
+                      {fotoPreview ? (
+                        <img 
+                          src={fotoPreview} 
+                          alt="Vista previa" 
+                          className="w-32 h-32 rounded-full object-cover border-4 border-sky-500/50"
+                        />
+                      ) : profile?.foto_perfil ? (
+                        <img 
+                          src={profile.foto_perfil} 
+                          alt="Foto actual" 
+                          className="w-32 h-32 rounded-full object-cover border-4 border-sky-500/50"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 rounded-full bg-sky-600/30 border-4 border-sky-500/50 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFotoChange}
+                        className="hidden"
+                      />
+                      <span className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition text-sm font-medium">
+                        {fotoPreview ? 'Cambiar Foto' : 'Subir Foto'}
+                      </span>
+                    </label>
+                    {fotoPreview && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFotoPreview(profile?.foto_perfil || null);
+                          setFotoPerfil(null);
+                        }}
+                        className="mt-2 text-xs text-slate-400 hover:text-slate-300"
+                      >
+                        Cancelar cambio
+                      </button>
+                    )}
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-200 mb-2">
                       Nombre de Usuario
@@ -305,6 +419,8 @@ export default function ProfilePage() {
                           email: profile?.email || '',
                           telefono: profile?.telefono || '',
                         });
+                        setFotoPreview(profile?.foto_perfil || null);
+                        setFotoPerfil(null);
                       }}
                       className="flex-1 px-4 py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl transition"
                       disabled={loading}

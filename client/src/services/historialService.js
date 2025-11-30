@@ -35,12 +35,17 @@ class HistorialService {
   // Guardar una búsqueda en el historial
   async guardarBusqueda(datosBusqueda) {
     try {
-      const { ruta, numero_ruta, parada } = datosBusqueda;
+      const { ruta, numero_ruta, parada, parada_destino, latitud_origen, longitud_origen, latitud_destino, longitud_destino } = datosBusqueda;
       
       const response = await apiClient.post("/historial", {
         ruta: ruta || null,
         numero_ruta: numero_ruta || null,
-        parada: parada || null
+        parada: parada || null,
+        parada_destino: parada_destino || null,
+        latitud_origen: latitud_origen || null,
+        longitud_origen: longitud_origen || null,
+        latitud_destino: latitud_destino || null,
+        longitud_destino: longitud_destino || null
       });
       
       return {

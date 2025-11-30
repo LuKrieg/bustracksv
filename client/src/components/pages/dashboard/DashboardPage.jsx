@@ -1,5 +1,6 @@
 import Header from "../../layout/Header";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import historialService from "../../../services/historialService";
 import routeService from "../../../services/routeService";
 
@@ -22,15 +23,54 @@ const StatCard = ({ title, iconSrc, value = 0, onClick }) => (
         {value}
       </span>
     </div>
-    <div className="mt-2 text-right text-sm font-semibold opacity-70">
-      Ver detalles →
-    </div>
   </div>
 );
 
 /* ---------- Modal de Detalles ---------- */
 const DetailsModal = ({ isOpen, onClose, title, data, type }) => {
   if (!isOpen) return null;
+
+  // Función para obtener la letra inicial para ordenar
+  const getSortKey = (item) => {
+    if (type === 'rutas' || type === 'buses') {
+      // Para rutas, ordenar por nombre o número de ruta
+      const nombre = item.nombre || '';
+      const numero = item.numero_ruta || '';
+      return (nombre + ' ' + numero).trim().toUpperCase();
+    } else {
+      // Para paradas, ordenar por nombre
+      return (item.nombre || '').trim().toUpperCase();
+    }
+  };
+
+  // Ordenar y agrupar datos alfabéticamente
+  const sortedData = [...data].sort((a, b) => {
+    const keyA = getSortKey(a);
+    const keyB = getSortKey(b);
+    return keyA.localeCompare(keyB);
+  });
+
+  // Agrupar por letra inicial
+  const groupedData = sortedData.reduce((acc, item) => {
+    const sortKey = getSortKey(item);
+    const firstLetter = sortKey.charAt(0).toUpperCase();
+
+    // Si no es una letra, poner en grupo "#"
+    const groupKey = /[A-Z]/.test(firstLetter) ? firstLetter : '#';
+
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
+    }
+    acc[groupKey].push(item);
+    return acc;
+  }, {});
+
+  // Ordenar las claves de los grupos
+  const sortedGroups = Object.keys(groupedData).sort((a, b) => {
+    if (a === '#') return 1;
+    if (b === '#') return -1;
+    return a.localeCompare(b);
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -55,53 +95,67 @@ const DetailsModal = ({ isOpen, onClose, title, data, type }) => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {data.map((item, index) => (
-              <div key={item.id || index} className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
-                {type === 'rutas' || type === 'buses' ? (
-                  <>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="bg-[#6aaee0] text-[#0f2b4a] font-bold px-2 py-1 rounded text-sm">
-                        Ruta {item.numero_ruta}
-                      </span>
-                      <span className="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded">
-                        {item.tipo || 'Bus'}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold text-white mb-1 line-clamp-1">{item.nombre}</h3>
-                    <p className="text-sm text-slate-400 mb-2 line-clamp-2">{item.descripcion || 'Sin descripción'}</p>
-                    <div className="text-xs text-slate-500 flex justify-between mt-auto pt-2 border-t border-white/5">
-                      <span>{item.empresa || 'Empresa desconocida'}</span>
-                      <span className="text-[#6aaee0] font-bold">${item.tarifa || '0.25'}</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded text-xs">
-                        {item.codigo || 'S/C'}
-                      </span>
-                      <span className="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded">
-                        {item.zona || 'General'}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold text-white mb-1 line-clamp-1">{item.nombre}</h3>
-                    <p className="text-sm text-slate-400 mb-1 line-clamp-1">{item.direccion || 'Sin dirección'}</p>
-                    {item.total_rutas > 0 && (
-                      <div className="text-xs text-[#6aaee0] mt-2">
-                        Conecta con {item.total_rutas} rutas
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {data.length === 0 && (
+          {sortedGroups.length === 0 ? (
             <div className="text-center py-10 text-slate-400">
               No se encontraron datos para mostrar.
             </div>
+          ) : (
+            sortedGroups.map((letter) => (
+              <div key={letter} className="mb-8">
+                {/* Encabezado de letra */}
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#6aaee0] flex items-center justify-center">
+                    <span className="text-[#0f2b4a] font-bold text-xl">{letter}</span>
+                  </div>
+                  <div className="h-px flex-1 bg-white/10"></div>
+                  <span className="text-sm text-slate-400">{groupedData[letter].length} {groupedData[letter].length === 1 ? 'item' : 'items'}</span>
+                </div>
+
+                {/* Grid de items para esta letra */}
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-6">
+                  {groupedData[letter].map((item, index) => (
+                    <div key={item.id || index} className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                      {type === 'rutas' || type === 'buses' ? (
+                        <>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="bg-[#6aaee0] text-[#0f2b4a] font-bold px-2 py-1 rounded text-sm">
+                              Ruta {item.numero_ruta}
+                            </span>
+                            <span className="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded">
+                              {item.tipo || 'Bus'}
+                            </span>
+                          </div>
+                          <h3 className="font-semibold text-white mb-1 line-clamp-1">{item.nombre}</h3>
+                          <p className="text-sm text-slate-400 mb-2 line-clamp-2">{item.descripcion || 'Sin descripción'}</p>
+                          <div className="text-xs text-slate-500 flex justify-between mt-auto pt-2 border-t border-white/5">
+                            <span>{item.empresa || 'Empresa desconocida'}</span>
+                            <span className="text-[#6aaee0] font-bold">${item.tarifa || '0.25'}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded text-xs">
+                              {item.codigo || 'S/C'}
+                            </span>
+                            <span className="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded">
+                              {item.zona || 'General'}
+                            </span>
+                          </div>
+                          <h3 className="font-semibold text-white mb-1 line-clamp-1">{item.nombre}</h3>
+                          <p className="text-sm text-slate-400 mb-1 line-clamp-1">{item.direccion || 'Sin dirección'}</p>
+                          {item.total_rutas > 0 && (
+                            <div className="text-xs text-[#6aaee0] mt-2">
+                              Conecta con {item.total_rutas} rutas
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>
@@ -110,6 +164,7 @@ const DetailsModal = ({ isOpen, onClose, title, data, type }) => {
 };
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [historial, setHistorial] = useState([]);
   const [loadingHistorial, setLoadingHistorial] = useState(true);
 
@@ -185,24 +240,72 @@ export default function DashboardPage() {
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'N/A';
-    const date = new Date(fecha);
-    return date.toLocaleDateString('es-SV', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit',
-      timeZone: 'America/El_Salvador'
-    });
+    try {
+      // SQLite devuelve "YYYY-MM-DD HH:MM:SS" en UTC
+      // Asegurar formato ISO UTC para que JS lo interprete correctamente
+      let fechaStr = fecha;
+      if (typeof fecha === 'string' && !fecha.includes('T') && !fecha.includes('Z')) {
+        fechaStr = fecha.replace(' ', 'T') + 'Z';
+      }
+
+      const date = new Date(fechaStr);
+
+      return new Intl.DateTimeFormat('es-SV', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+        timeZone: 'America/El_Salvador'
+      }).format(date);
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
+      return 'N/A';
+    }
   };
 
   const formatearHora = (fecha) => {
     if (!fecha) return 'N/A';
-    const date = new Date(fecha);
-    return date.toLocaleTimeString('es-SV', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'America/El_Salvador'
-    });
+    try {
+      // SQLite devuelve "YYYY-MM-DD HH:MM:SS" en UTC
+      let fechaStr = fecha;
+      if (typeof fecha === 'string' && !fecha.includes('T') && !fecha.includes('Z')) {
+        fechaStr = fecha.replace(' ', 'T') + 'Z';
+      }
+
+      const date = new Date(fechaStr);
+
+      const horaFormateada = new Intl.DateTimeFormat('es-SV', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/El_Salvador'
+      }).format(date);
+
+      return horaFormateada.toLowerCase();
+    } catch (error) {
+      console.error('Error al formatear hora:', error);
+      return 'N/A';
+    }
+  };
+
+  const handleHistorialClick = async (item) => {
+    // Navegar al mapa con los datos del historial
+    // Si hay coordenadas guardadas, usarlas; si no, buscar por nombre de parada
+    const historialData = {
+      origen: item.parada || null,
+      destino: null, // El historial solo guarda la parada de origen
+      latOrigen: item.latitud_origen || null,
+      lngOrigen: item.longitud_origen || null,
+      latDestino: item.latitud_destino || null,
+      lngDestino: item.longitud_destino || null,
+      ruta: item.ruta || null,
+      numeroRuta: item.numero_ruta || null
+    };
+
+    // Guardar en sessionStorage para que el mapa pueda acceder
+    sessionStorage.setItem('historialSearch', JSON.stringify(historialData));
+
+    // Navegar al mapa
+    navigate('/map');
   };
 
   return (
@@ -269,18 +372,22 @@ export default function DashboardPage() {
                   <thead>
                     <tr className="bg-[#5EA0D6] text-white font-semibold">
                       <th className="px-6 py-3 text-left">Ruta</th>
-                      <th className="px-6 py-3 text-left">Bus</th>
-                      <th className="px-6 py-3 text-left">Parada</th>
+                      <th className="px-6 py-3 text-left">Inicio</th>
+                      <th className="px-6 py-3 text-left">Final</th>
                       <th className="px-6 py-3 text-left">Día</th>
                       <th className="px-6 py-3 text-left">Hora</th>
                     </tr>
                   </thead>
                   <tbody>
                     {historial.map((h, i) => (
-                      <tr key={h.id || i} className={i % 2 ? "bg-[#6CA6DA]" : "bg-[#A9C8E8]"}>
+                      <tr
+                        key={h.id || i}
+                        onClick={() => handleHistorialClick(h)}
+                        className={`${i % 2 ? "bg-[#6CA6DA]" : "bg-[#A9C8E8]"} cursor-pointer hover:opacity-80 transition-opacity`}
+                      >
                         <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.ruta || 'N/A'}</td>
-                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.numero_ruta || 'N/A'}</td>
                         <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.parada || 'N/A'}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.parada_destino || 'N/A'}</td>
                         <td className="px-6 py-3 text-[#0f2b4a] font-medium">{formatearFecha(h.fecha_busqueda)}</td>
                         <td className="px-6 py-3 text-[#0f2b4a] font-medium">{formatearHora(h.fecha_busqueda)}</td>
                       </tr>

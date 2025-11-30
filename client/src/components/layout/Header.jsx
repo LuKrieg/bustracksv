@@ -11,7 +11,7 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-[#0b0f1a] px-8 relative z-20">
+    <header className="bg-[#0C0E19] px-8 relative z-20">
       <div className="w-full px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
           {/* Logo */}
@@ -32,9 +32,10 @@ const Header = () => {
                   to="/dashboard"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/dashboard')
-                      ? 'text-accent-blue'
-                      : 'text-text-secondary hover:text-text-primary'
+                      ? 'text-[#5D9FD9]'
+                      : 'text-white hover:text-slate-300'
                   }`}
+                  style={{ fontFamily: 'Roboto, sans-serif' }}
                 >
                   Dashboard
                 </Link>
@@ -42,9 +43,10 @@ const Header = () => {
                   to="/map"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/map')
-                      ? 'text-accent-blue'
-                      : 'text-text-secondary hover:text-text-primary'
+                      ? 'text-[#5D9FD9]'
+                      : 'text-white hover:text-slate-300'
                   }`}
+                  style={{ fontFamily: 'Roboto, sans-serif' }}
                 >
                   Mapa
                 </Link>
@@ -56,9 +58,10 @@ const Header = () => {
                   to="/"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/')
-                      ? 'text-[#7bc4f0]'
+                      ? 'text-[#5D9FD9]'
                       : 'text-white hover:text-slate-300'
                   }`}
+                  style={{ fontFamily: 'Roboto, sans-serif' }}
                 >
                   Explora
                 </Link>
@@ -66,9 +69,10 @@ const Header = () => {
                   to="/features"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/features')
-                      ? 'text-[#7bc4f0]'
+                      ? 'text-[#5D9FD9]'
                       : 'text-white hover:text-slate-300'
                   }`}
+                  style={{ fontFamily: 'Roboto, sans-serif' }}
                 >
                   Características
                 </Link>
@@ -76,9 +80,10 @@ const Header = () => {
                   to="/about"
                   className={`text-lg font-medium transition-colors duration-200 ${
                     isActive('/about')
-                      ? 'text-[#7bc4f0]'
+                      ? 'text-[#5D9FD9]'
                       : 'text-white hover:text-slate-300'
                   }`}
+                  style={{ fontFamily: 'Roboto, sans-serif' }}
                 >
                   Quienes somos
                 </Link>
@@ -97,12 +102,14 @@ const Header = () => {
                 <Link
                   to="/login"
                   className="text-lg text-white hover:text-slate-300 transition-colors duration-200"
+                  style={{ fontFamily: 'Roboto, sans-serif' }}
                 >
                   Iniciar Sesión
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-[#7bc4f0] text-white px-8 py-2 rounded-lg text-lg font-medium hover:bg-[#6ab3e0] transition-colors duration-200"
+                  className="bg-[#5D9FD9] text-white px-8 py-2 rounded-lg text-lg font-medium hover:bg-[#4a8fc9] transition-colors duration-200"
+                  style={{ fontFamily: 'Montserrat, sans-serif' }}
                 >
                   Empezar
                 </Link>
