@@ -1,47 +1,163 @@
 import Header from "../../layout/Header";
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import historialService from "../../../services/historialService";
-import detalleService from "../../../services/detalleService";
-import apiClient from "../../../api/client";
-import DetailModal from "./DetailModal";
+import routeService from "../../../services/routeService";
 
 /* ---------- Tarjeta estilo mock ---------- */
-const StatCard = ({ title, iconSrc, value = 1, onClick }) => {
-  // Mapeo de títulos a rutas de iconos para asegurar que se carguen correctamente
-  const iconMap = {
-    'Buses': '/busDashboard.png',
-    'Paradas': '/Parada.png',
-    'Rutas': '/Ruta.png'
-  };
-  
-  const iconPath = iconMap[title] || iconSrc;
-  
-  return (
-    <div 
-      className="rounded-[18px] bg-[#a9c9e8] text-[#0f2b4a] px-8 py-6 shadow-[0_8px_24px_rgba(0,0,0,0.15)] cursor-pointer hover:bg-[#9bb3d6] transition-colors duration-200"
-      onClick={onClick}
-    >
-      <p className="text-[28px] font-extrabold tracking-tight mb-4">{title}</p>
+const StatCard = ({ title, iconSrc, value = 0, onClick }) => (
+  <div
+    onClick={onClick}
+    className="rounded-[18px] bg-[#a9c9e8] text-[#0f2b4a] px-8 py-6 shadow-[0_8px_24px_rgba(0,0,0,0.15)] cursor-pointer hover:scale-105 transition-transform duration-200"
+  >
+    <p className="text-[28px] font-extrabold tracking-tight mb-4">{title}</p>
 
-      <div className="flex items-center">
-        {/* ícono cuadrado azul */}
-        <div className="h-[84px] w-[84px] rounded-[10px] bg-[#64a3d5] grid place-items-center">
-          <img 
-            src={iconPath} 
-            alt={title} 
-            className="h-[54px] w-[54px] object-contain"
-            loading="eager"
-            onError={(e) => {
-              console.error(`Error al cargar imagen para ${title}:`, iconPath);
-            }}
-          />
+    <div className="flex items-center">
+      {/* ícono cuadrado azul */}
+      <div className="h-[84px] w-[84px] rounded-[10px] bg-[#64a3d5] grid place-items-center">
+        <img src={iconSrc} alt={title} className="h-[54px] w-[54px] object-contain" />
+      </div>
+
+      {/* número grande */}
+      <span className="ml-auto text-[56px] leading-none font-extrabold text-[#102a5a]">
+        {value}
+      </span>
+    </div>
+  </div>
+);
+
+/* ---------- Modal de Detalles ---------- */
+const DetailsModal = ({ isOpen, onClose, title, data, type }) => {
+  if (!isOpen) return null;
+
+  // Función para obtener la letra inicial para ordenar
+  const getSortKey = (item) => {
+    if (type === 'rutas' || type === 'buses') {
+      // Para rutas, ordenar por nombre o número de ruta
+      const nombre = item.nombre || '';
+      const numero = item.numero_ruta || '';
+      return (nombre + ' ' + numero).trim().toUpperCase();
+    } else {
+      // Para paradas, ordenar por nombre
+      return (item.nombre || '').trim().toUpperCase();
+    }
+  };
+
+  // Ordenar y agrupar datos alfabéticamente
+  const sortedData = [...data].sort((a, b) => {
+    const keyA = getSortKey(a);
+    const keyB = getSortKey(b);
+    return keyA.localeCompare(keyB);
+  });
+
+  // Agrupar por letra inicial
+  const groupedData = sortedData.reduce((acc, item) => {
+    const sortKey = getSortKey(item);
+    const firstLetter = sortKey.charAt(0).toUpperCase();
+
+    // Si no es una letra, poner en grupo "#"
+    const groupKey = /[A-Z]/.test(firstLetter) ? firstLetter : '#';
+
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
+    }
+    acc[groupKey].push(item);
+    return acc;
+  }, {});
+
+  // Ordenar las claves de los grupos
+  const sortedGroups = Object.keys(groupedData).sort((a, b) => {
+    if (a === '#') return 1;
+    if (b === '#') return -1;
+    return a.localeCompare(b);
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-[#1e263b] w-full max-w-4xl max-h-[80vh] rounded-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        {/* Header */}
+        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#151b2e]">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+            <span className="text-[#6aaee0]">Listado de {title}</span>
+            <span className="text-sm bg-white/10 px-3 py-1 rounded-full text-slate-300 font-normal">
+              Total: {data.length}
+            </span>
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        {/* número grande */}
-        <span className="ml-auto text-[56px] leading-none font-extrabold text-[#102a5a]">
-          {value}
-        </span>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {sortedGroups.length === 0 ? (
+            <div className="text-center py-10 text-slate-400">
+              No se encontraron datos para mostrar.
+            </div>
+          ) : (
+            sortedGroups.map((letter) => (
+              <div key={letter} className="mb-8">
+                {/* Encabezado de letra */}
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#6aaee0] flex items-center justify-center">
+                    <span className="text-[#0f2b4a] font-bold text-xl">{letter}</span>
+                  </div>
+                  <div className="h-px flex-1 bg-white/10"></div>
+                  <span className="text-sm text-slate-400">{groupedData[letter].length} {groupedData[letter].length === 1 ? 'item' : 'items'}</span>
+                </div>
+
+                {/* Grid de items para esta letra */}
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-6">
+                  {groupedData[letter].map((item, index) => (
+                    <div key={item.id || index} className="bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                      {type === 'rutas' || type === 'buses' ? (
+                        <>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="bg-[#6aaee0] text-[#0f2b4a] font-bold px-2 py-1 rounded text-sm">
+                              Ruta {item.numero_ruta}
+                            </span>
+                            <span className="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded">
+                              {item.tipo || 'Bus'}
+                            </span>
+                          </div>
+                          <h3 className="font-semibold text-white mb-1 line-clamp-1">{item.nombre}</h3>
+                          <p className="text-sm text-slate-400 mb-2 line-clamp-2">{item.descripcion || 'Sin descripción'}</p>
+                          <div className="text-xs text-slate-500 flex justify-between mt-auto pt-2 border-t border-white/5">
+                            <span>{item.empresa || 'Empresa desconocida'}</span>
+                            <span className="text-[#6aaee0] font-bold">${item.tarifa || '0.25'}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-1 rounded text-xs">
+                              {item.codigo || 'S/C'}
+                            </span>
+                            <span className="text-xs text-slate-400 bg-black/20 px-2 py-1 rounded">
+                              {item.zona || 'General'}
+                            </span>
+                          </div>
+                          <h3 className="font-semibold text-white mb-1 line-clamp-1">{item.nombre}</h3>
+                          <p className="text-sm text-slate-400 mb-1 line-clamp-1">{item.direccion || 'Sin dirección'}</p>
+                          {item.total_rutas > 0 && (
+                            <div className="text-xs text-[#6aaee0] mt-2">
+                              Conecta con {item.total_rutas} rutas
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -49,167 +165,99 @@ const StatCard = ({ title, iconSrc, value = 1, onClick }) => {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [historial, setHistorial] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [estadisticas, setEstadisticas] = useState({ buses: 0, paradas: 0, rutas: 0 });
-  
-  // Estados para el modal de detalles
-  const [modalAbierto, setModalAbierto] = useState(false);
-  const [modalTipo, setModalTipo] = useState(null); // 'paradas', 'rutas', 'buses'
-  const [modalTitulo, setModalTitulo] = useState('');
-  const [modalDatos, setModalDatos] = useState([]);
-  const [cargandoModal, setCargandoModal] = useState(false);
+  const [loadingHistorial, setLoadingHistorial] = useState(true);
 
-  const cargarEstadisticas = async () => {
+  const [stats, setStats] = useState({
+    rutas: [],
+    paradas: [],
+    buses: [] // Usaremos rutas como proxy para buses por ahora
+  });
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState({ type: '', title: '', data: [] });
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  const cargarDatos = async () => {
+    setLoadingHistorial(true);
+
     try {
-      const response = await apiClient.get('/api/estadisticas');
-      if (response.data && response.data.success) {
-        setEstadisticas({
-          buses: response.data.buses || 0,
-          paradas: response.data.paradas || 0,
-          rutas: response.data.rutas || 0
-        });
+      // Cargar Historial
+      const historialRes = await historialService.obtenerHistorial(10);
+      if (historialRes.success) {
+        setHistorial(historialRes.data.historial);
       }
-    } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
-    }
-  };
 
-  // Handler para abrir el modal con los datos correspondientes
-  const handleAbrirModal = async (tipo) => {
-    setModalTipo(tipo);
-    setModalTitulo(tipo.charAt(0).toUpperCase() + tipo.slice(1));
-    setCargandoModal(true);
-    setModalAbierto(true);
-    
-    try {
-      let resultado;
-      if (tipo === 'paradas') {
-        resultado = await detalleService.obtenerParadasDetalle();
-      } else if (tipo === 'rutas') {
-        resultado = await detalleService.obtenerRutasDetalle();
-      } else if (tipo === 'buses') {
-        resultado = await detalleService.obtenerBusesDetalle();
-      }
-      
-      if (resultado.success) {
-        console.log('Datos cargados exitosamente:', tipo, resultado.data?.length || 0, 'elementos');
-        setModalDatos(resultado.data || []);
-      } else {
-        console.error('Error al cargar datos:', resultado.message);
-        setModalDatos([]);
-      }
-    } catch (error) {
-      console.error('Error al cargar datos del modal:', error);
-      console.error('Detalles del error:', error.response?.data || error.message);
-      setModalDatos([]);
-    } finally {
-      setCargandoModal(false);
-    }
-  };
+      // Cargar Rutas y Paradas
+      const [rutasRes, paradasRes] = await Promise.all([
+        routeService.getRutas(),
+        routeService.getParadas()
+      ]);
 
-  // Handler para cerrar el modal
-  const handleCerrarModal = () => {
-    setModalAbierto(false);
-    setModalTipo(null);
-    setModalTitulo('');
-    setModalDatos([]);
-  };
+      const rutas = rutasRes.success ? rutasRes.data : [];
+      const paradas = paradasRes.success ? paradasRes.data : [];
 
-  const cargarHistorial = async () => {
-    setLoading(true);
-    const result = await historialService.obtenerHistorial(); // Obtener todas las búsquedas
-    if (result.success) {
-      let historialOrdenado = result.data.historial || [];
-      
-      // Ordenar por fecha descendente (más recientes primero)
-      historialOrdenado.sort((a, b) => {
-        const fechaA = new Date(a.fecha_busqueda);
-        const fechaB = new Date(b.fecha_busqueda);
-        return fechaB - fechaA; // Descendente
+      setStats({
+        rutas: rutas,
+        paradas: paradas,
+        buses: rutas // Asumimos 1 bus por ruta como mínimo para visualización, o mostramos las rutas como "flota"
       });
-      
-      // Eliminar los primeros 7 datos (datos fijados)
-      historialOrdenado = historialOrdenado.slice(7);
-      
-      // Limitar a 10 resultados
-      historialOrdenado = historialOrdenado.slice(0, 10);
-      
-      setHistorial(historialOrdenado);
+
+    } catch (error) {
+      console.error("Error cargando datos del dashboard:", error);
+    } finally {
+      setLoadingHistorial(false);
     }
-    setLoading(false);
   };
 
-  // Recargar historial cada vez que se navega al Dashboard
-  useEffect(() => {
-    if (location.pathname === '/dashboard') {
-      cargarHistorial();
-      cargarEstadisticas();
+  const openModal = (type) => {
+    let data = [];
+    let title = '';
+
+    switch (type) {
+      case 'buses':
+        data = stats.buses;
+        title = 'Buses (Rutas Activas)';
+        break;
+      case 'paradas':
+        data = stats.paradas;
+        title = 'Paradas';
+        break;
+      case 'rutas':
+        data = stats.rutas;
+        title = 'Rutas';
+        break;
+      default:
+        return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
 
-  // Recargar historial cuando la ventana recupera el foco o se hace visible
-  useEffect(() => {
-    if (location.pathname !== '/dashboard') return;
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        cargarHistorial();
-      }
-    };
-
-    const handleFocus = () => {
-      cargarHistorial();
-    };
-
-    // Page Visibility API - detectar cuando la página se vuelve visible
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Window focus - detectar cuando la ventana recupera el foco
-    window.addEventListener('focus', handleFocus);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+    setModalConfig({ type, title, data });
+    setModalOpen(true);
+  };
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'N/A';
     try {
-      // Parsear la fecha correctamente
-      // Si viene como string SQLite 'YYYY-MM-DD HH:MM:SS', tratarlo como hora local de El Salvador
-      let date;
-      if (typeof fecha === 'string') {
-        // Parsear: 'YYYY-MM-DD HH:MM:SS' o 'YYYY-MM-DDTHH:MM:SS'
-        const dateStr = fecha.replace('T', ' ');
-        const [datePart, timePart] = dateStr.split(' ');
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hour = 0, minute = 0, second = 0] = timePart ? timePart.split(':').map(Number) : [0, 0, 0];
-        
-        // Interpretar como hora local de El Salvador (UTC-6)
-        // Cuando guardamos '2025-10-31 19:45:00' como hora local de El Salvador
-        // En UTC eso sería '2025-11-01 01:45:00' (19:45 + 6 horas)
-        // Para recrear el Date correcto que muestre 19:45 en El Salvador,
-        // creamos Date.UTC sumando 6 horas a la hora local
-        date = new Date(Date.UTC(year, month - 1, day, hour + 6, minute, second));
-      } else {
-        date = new Date(fecha);
+      // SQLite devuelve "YYYY-MM-DD HH:MM:SS" en UTC
+      // Asegurar formato ISO UTC para que JS lo interprete correctamente
+      let fechaStr = fecha;
+      if (typeof fecha === 'string' && !fecha.includes('T') && !fecha.includes('Z')) {
+        fechaStr = fecha.replace(' ', 'T') + 'Z';
       }
-      
-      // Formatear usando zona horaria de El Salvador
-      const fechaElSalvador = new Intl.DateTimeFormat('es-SV', {
-        timeZone: 'America/El_Salvador',
+
+      const date = new Date(fechaStr);
+
+      return new Intl.DateTimeFormat('es-SV', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
+        year: '2-digit',
+        timeZone: 'America/El_Salvador'
       }).format(date);
-      return fechaElSalvador;
     } catch (error) {
-      console.error('Error al formatear fecha:', error, fecha);
+      console.error('Error al formatear fecha:', error);
       return 'N/A';
     }
   };
@@ -217,33 +265,47 @@ export default function DashboardPage() {
   const formatearHora = (fecha) => {
     if (!fecha) return 'N/A';
     try {
-      // Parsear la fecha correctamente
-      let date;
-      if (typeof fecha === 'string') {
-        const dateStr = fecha.replace('T', ' ');
-        const [datePart, timePart] = dateStr.split(' ');
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hour = 0, minute = 0, second = 0] = timePart ? timePart.split(':').map(Number) : [0, 0, 0];
-        
-        // Interpretar como hora local de El Salvador (UTC-6)
-        // Convertir hora local de El Salvador a UTC sumando 6 horas
-        date = new Date(Date.UTC(year, month - 1, day, hour + 6, minute, second));
-      } else {
-        date = new Date(fecha);
+      // SQLite devuelve "YYYY-MM-DD HH:MM:SS" en UTC
+      let fechaStr = fecha;
+      if (typeof fecha === 'string' && !fecha.includes('T') && !fecha.includes('Z')) {
+        fechaStr = fecha.replace(' ', 'T') + 'Z';
       }
-      
-      // Formatear usando zona horaria de El Salvador
-      const horaElSalvador = new Intl.DateTimeFormat('es-SV', {
-        timeZone: 'America/El_Salvador',
+
+      const date = new Date(fechaStr);
+
+      const horaFormateada = new Intl.DateTimeFormat('es-SV', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true
+        hour12: true,
+        timeZone: 'America/El_Salvador'
       }).format(date);
-      return horaElSalvador;
+
+      return horaFormateada.toLowerCase();
     } catch (error) {
-      console.error('Error al formatear hora:', error, fecha);
+      console.error('Error al formatear hora:', error);
       return 'N/A';
     }
+  };
+
+  const handleHistorialClick = async (item) => {
+    // Navegar al mapa con los datos del historial
+    // Si hay coordenadas guardadas, usarlas; si no, buscar por nombre de parada
+    const historialData = {
+      origen: item.parada || null,
+      destino: null, // El historial solo guarda la parada de origen
+      latOrigen: item.latitud_origen || null,
+      lngOrigen: item.longitud_origen || null,
+      latDestino: item.latitud_destino || null,
+      lngDestino: item.longitud_destino || null,
+      ruta: item.ruta || null,
+      numeroRuta: item.numero_ruta || null
+    };
+
+    // Guardar en sessionStorage para que el mapa pueda acceder
+    sessionStorage.setItem('historialSearch', JSON.stringify(historialData));
+
+    // Navegar al mapa
+    navigate('/map');
   };
 
   return (
@@ -260,23 +322,23 @@ export default function DashboardPage() {
           <div className="mx-auto max-w-[1100px]">
             <div className="rounded-[16px] bg-[#1e263b]/90 border border-white/10 px-10 py-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                <StatCard 
-                  title="Buses" 
-                  iconSrc="/busDashboard.png" 
-                  value={estadisticas.buses}
-                  onClick={() => handleAbrirModal('buses')}
+                <StatCard
+                  title="Buses"
+                  iconSrc="/busDashboard.png"
+                  value={stats.buses.length}
+                  onClick={() => openModal('buses')}
                 />
-                <StatCard 
-                  title="Paradas" 
-                  iconSrc="/Parada.png" 
-                  value={estadisticas.paradas}
-                  onClick={() => handleAbrirModal('paradas')}
+                <StatCard
+                  title="Paradas"
+                  iconSrc="/Parada.png"
+                  value={stats.paradas.length}
+                  onClick={() => openModal('paradas')}
                 />
-                <StatCard 
-                  title="Rutas" 
-                  iconSrc="/Ruta.png" 
-                  value={estadisticas.rutas}
-                  onClick={() => handleAbrirModal('rutas')}
+                <StatCard
+                  title="Rutas"
+                  iconSrc="/Ruta.png"
+                  value={stats.rutas.length}
+                  onClick={() => openModal('rutas')}
                 />
               </div>
             </div>
@@ -286,21 +348,17 @@ export default function DashboardPage() {
         {/* ---------- Historial (igual al mock) ---------- */}
         <section className="mt-10 pb-16">
           <div className="mx-auto max-w-[1100px] rounded-xl bg-[#1f2740] border border-[#1f2740] px-4 pt-5 pb-6 relative">
-            
+
             {/* Píldora "Historial" EXACTA */}
-            <button
-              onClick={cargarHistorial}
-              className="inline-flex items-center gap-4 rounded-[28px] px-6 py-3 bg-[#69AEE0] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] mb-6 cursor-pointer hover:bg-[#5EA0D6] transition-colors duration-200 active:scale-95"
-              title="Refrescar historial"
-            >
+            <div className="inline-flex items-center gap-4 rounded-[28px] px-6 py-3 bg-[#69AEE0] text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] mb-6">
               <span className="text-[24px] font-extrabold leading-none">Historial</span>
               <img src="/Reloj.png" alt="Reloj" className="h-8 w-8 object-contain" />
-            </button>
+            </div>
 
 
             {/* Tarjeta azul clara con tabla redondeada */}
             <div className="relative z-[1] mx-auto max-w-[980px] rounded-[14px] overflow-hidden bg-[#77AEDD]">
-              {loading ? (
+              {loadingHistorial ? (
                 <div className="py-10 text-center text-[#0f2b4a]">
                   <p className="text-lg font-semibold">Cargando historial...</p>
                 </div>
@@ -313,23 +371,24 @@ export default function DashboardPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#5EA0D6] text-white font-semibold">
-                      <th className="px-6 py-3 text-left">Origen</th>
-                      <th className="px-6 py-3 text-left">Destino</th>
+                      <th className="px-6 py-3 text-left">Ruta</th>
+                      <th className="px-6 py-3 text-left">Inicio</th>
+                      <th className="px-6 py-3 text-left">Final</th>
+                      <th className="px-6 py-3 text-left">Día</th>
                       <th className="px-6 py-3 text-left">Hora</th>
                     </tr>
                   </thead>
                   <tbody>
                     {historial.map((h, i) => (
-                      <tr 
-                        key={h.id || i} 
-                        className={`${i % 2 ? "bg-[#6CA6DA]" : "bg-[#A9C8E8]"} cursor-pointer hover:bg-[#5EA0D6] transition-colors`}
-                        onClick={() => {
-                          // Navegar al mapa con datos del historial
-                          navigate('/map', { state: { historial: h } });
-                        }}
+                      <tr
+                        key={h.id || i}
+                        onClick={() => handleHistorialClick(h)}
+                        className={`${i % 2 ? "bg-[#6CA6DA]" : "bg-[#A9C8E8]"} cursor-pointer hover:opacity-80 transition-opacity`}
                       >
-                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.metadata?.origenNombre || 'N/A'}</td>
-                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.metadata?.destinoNombre || 'N/A'}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.ruta || 'N/A'}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.parada || 'N/A'}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{h.parada_destino || 'N/A'}</td>
+                        <td className="px-6 py-3 text-[#0f2b4a] font-medium">{formatearFecha(h.fecha_busqueda)}</td>
                         <td className="px-6 py-3 text-[#0f2b4a] font-medium">{formatearHora(h.fecha_busqueda)}</td>
                       </tr>
                     ))}
@@ -341,14 +400,13 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      {/* Modal de detalles */}
-      <DetailModal
-        isOpen={modalAbierto}
-        onClose={handleCerrarModal}
-        title={modalTitulo}
-        data={modalDatos}
-        type={modalTipo}
-        loading={cargandoModal}
+      {/* Modal */}
+      <DetailsModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalConfig.title}
+        data={modalConfig.data}
+        type={modalConfig.type}
       />
     </div>
   );
